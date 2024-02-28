@@ -35,7 +35,7 @@ extern "C" {
 #define AIN_PARAMNAME_LENGTH	12
 #define NRO_ANALOG_CHANNELS     3
 
-#define PWRSENSORES_SETTLETIME_MS   5000
+#define PWRSENSORES_SETTLETIME_MS   3000
 
 typedef struct {
     bool enabled;
@@ -51,12 +51,14 @@ typedef struct {
     ainputs_channel_conf_t channel[NRO_ANALOG_CHANNELS];
 } ainputs_conf_t;
 
-void ainputs_init_outofrtos( SemaphoreHandle_t semph);
-void ainputs_init(uint8_t samples_count);
+ainputs_conf_t ainputs_conf;
+
+void ainputs_init_outofrtos( void );
+void ainputs_init(void);
 void ainputs_awake(void);
 void ainputs_sleep(void);
 
-uint16_t ainputs_read_channel_raw(uint8_t ch );
+uint16_t ainputs_read_channel_raw( uint8_t ch );
 void ainputs_prender_sensores(void);
 void ainputs_apagar_sensores(void);
 void ainputs_config_debug(bool debug );
@@ -65,11 +67,12 @@ bool ainputs_read_debug(void);
 void AINPUTS_ENTER_CRITICAL(void);
 void AINPUTS_EXIT_CRITICAL(void);
 
-void ainputs_config_defaults( ainputs_conf_t *ain);
-void ainputs_print_configuration(ainputs_conf_t *ain);
-bool ainputs_config_channel( ainputs_conf_t *ain, uint8_t ch, char *s_enable, char *s_aname,char *s_imin,char *s_imax,char *s_mmin,char *s_mmax,char *s_offset );
-uint8_t ainputs_hash( ainputs_conf_t *ain );
-void ainputs_read_channel ( ainputs_conf_t *ain, uint8_t ch, float *mag, uint16_t *raw );
+void ainputs_config_defaults( void );
+void ainputs_print_configuration( void );
+bool ainputs_config_channel( uint8_t ch, char *s_enable, char *s_aname,char *s_imin,char *s_imax,char *s_mmin,char *s_mmax,char *s_offset );
+uint8_t ainputs_hash( void );
+void ainputs_read_channel ( uint8_t ch, float *mag, uint16_t *raw );
+bool ainputs_test_read_channel( uint8_t ch );
 
 #ifdef	__cplusplus
 }

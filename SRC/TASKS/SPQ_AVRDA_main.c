@@ -132,14 +132,18 @@ int main(void) {
     frtos_open(fdTERM, 9600 );
     frtos_open(fdXCOMMS, 9600 );
     frtos_open(fdI2C1, 100 );
+    frtos_open(fdNVM, 0 );
     
     sem_SYSVars = xSemaphoreCreateMutexStatic( &SYSVARS_xMutexBuffer );
+    ainputs_init_outofrtos();
+    counter_init_outofrtos();
     
     starting_flag = false;
     
     xHandle_tkCtl = xTaskCreateStatic( tkCtl, "CTL", tkCtl_STACK_SIZE, (void *)1, tkCtl_TASK_PRIORITY, tkCtl_Buffer, &tkCtl_Buffer_Ptr );
     xHandle_tkCmd = xTaskCreateStatic( tkCmd, "CMD", tkCmd_STACK_SIZE, (void *)1, tkCmd_TASK_PRIORITY, tkCmd_Buffer, &tkCmd_Buffer_Ptr );
-    xHandle_tkLte = xTaskCreateStatic( tkLte, "LTE", tkLte_STACK_SIZE, (void *)1, tkLte_TASK_PRIORITY, tkLte_Buffer, &tkLte_Buffer_Ptr );
+    xHandle_tkSys = xTaskCreateStatic( tkSys, "SYS", tkSys_STACK_SIZE, (void *)1, tkSys_TASK_PRIORITY, tkSys_Buffer, &tkSys_Buffer_Ptr );
+    //xHandle_tkLte = xTaskCreateStatic( tkLte, "LTE", tkLte_STACK_SIZE, (void *)1, tkLte_TASK_PRIORITY, tkLte_Buffer, &tkLte_Buffer_Ptr );
     
     /* Arranco el RTOS. */
 	vTaskStartScheduler();

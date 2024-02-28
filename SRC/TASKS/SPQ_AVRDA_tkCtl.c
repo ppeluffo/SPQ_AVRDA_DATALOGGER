@@ -21,7 +21,7 @@ void tkCtl(void * pvParameters)
 
 ( void ) pvParameters;
 
-uint16_t a;
+//uint16_t a;
 
 /*
 	vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );

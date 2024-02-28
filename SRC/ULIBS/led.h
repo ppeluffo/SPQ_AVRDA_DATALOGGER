@@ -19,8 +19,8 @@ extern "C" {
 #include "task.h"
     
 #define LED_PORT	PORTC
-#define LED_PIN_bm	PIN3_bm
-#define LED_PIN_bp  PIN3_bp
+#define LED_PIN_bm	PIN4_bm
+#define LED_PIN_bp  PIN4_bp
     
 #define PRENDER_LED() ( LED_PORT.OUT |= LED_PIN_bm )
 #define APAGAR_LED() ( LED_PORT.OUT &= ~LED_PIN_bm )

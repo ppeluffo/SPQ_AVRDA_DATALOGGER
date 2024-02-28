@@ -52,6 +52,13 @@ uint8_t uart3_rxBuffer[UART3_RXSIZE];
 rBchar_s TXRB_uart3, RXRB_uart3;
 void drv_uart3_init(uint32_t baudrate );
 
+#define UART4_TXSIZE	8	// trasmito por poleo. Si uso interrupcion lo subo a 128
+uint8_t uart4_txBuffer[UART4_TXSIZE];
+#define UART4_RXSIZE	64	// 
+uint8_t uart4_rxBuffer[UART4_RXSIZE];
+rBchar_s TXRB_uart4, RXRB_uart4;
+void drv_uart4_init(uint32_t baudrate );
+
 //-----------------------------------------------------------------------
 
 

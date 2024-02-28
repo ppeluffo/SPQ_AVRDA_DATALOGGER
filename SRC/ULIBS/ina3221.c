@@ -16,7 +16,7 @@ int16_t xBytes = 0;
 	res[0] = ( conf_reg_value & 0xFF00 ) >> 8;
 	res[1] = ( conf_reg_value & 0x00FF );
 
-    xprintf_P(PSTR("INA_config\r\n"));
+    //xprintf_P(PSTR("INA_config\r\n"));
 	xBytes = INA_write( INA3231_CONF, res, 2, false );
 	if ( xBytes == -1 ) {
 		xprintf("ERROR: I2C:INA_config\r\n");

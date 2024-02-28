@@ -47,7 +47,6 @@ extern "C" {
 #define F_CPU 24000000
 #endif
 
-
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -86,12 +85,14 @@ extern "C" {
 #include "lte.h"
 #include "i2c.h"
 #include "ina3221.h"
+#include "rtc79410.h"
+#include "ainputs.h"
 
 #define FW_REV "1.0.0"
-#define FW_DATE "@ 20240130"
+#define FW_DATE "@ 20240227"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
-#define FW_TYPE "AUXBOARD"
+#define FW_TYPE "DLG"
 
 #define SYSMAINCLK 24
 
@@ -125,11 +126,55 @@ TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkLte;
 
 void tkCtl(void * pvParameters);
 void tkCmd(void * pvParameters);
-void tkSystem(void * pvParameters);
+void tkSys(void * pvParameters);
 void tkLte(void * pvParameters);
+
+typedef enum { PWR_CONTINUO = 0, PWR_DISCRETO, PWR_MIXTO } pwr_modo_t;
+
+#define DLGID_LENGTH		12
+#define TDIAL_MIN_DISCRETO  900
+
+bool starting_flag;
+
+// Estructura que tiene el valor de las medidas en el intervalo de poleo
+struct {   
+    bool debug;
+    float ainputs[NRO_ANALOG_CHANNELS];
+    float counter;
+    float bt3v3;
+    float bt12v;
+} systemVars;
+
+typedef struct {
+    char dlgid[DLGID_LENGTH];
+    uint16_t timerpoll;
+    uint16_t timerdial;
+    pwr_modo_t pwr_modo;
+    uint16_t pwr_hhmm_on;
+    uint16_t pwr_hhmm_off;    
+} base_conf_t;
+
+base_conf_t base_conf;
+
+// Estructura que tiene la configuracion del sistema
+struct {
+    base_conf_t *ptr_base_conf;
+	ainputs_conf_t *ptr_ainputs_conf;
+    counter_conf_t *ptr_counter_conf;
+} systemConf;
 
 void system_init();
 void reset(void);
+void u_print_pwr_configuration(void);
+bool u_config_timerdial ( char *s_timerdial );
+bool u_config_timerpoll ( char *s_timerpoll );
+bool u_config_dlgid ( char *s_dlgid );
+bool u_config_pwrmodo ( char *s_pwrmodo );
+bool u_config_pwron ( char *s_pwron );
+bool u_config_pwroff ( char *s_pwroff );
+void u_config_default(void);
+bool u_save_config_in_NVM(void);
+bool u_load_config_from_NVM(void);
 
 // Mensajes entre tareas
 #define SGN_FRAME_READY		0x01
@@ -137,25 +182,10 @@ void reset(void);
 void kick_wdt( uint8_t bit_pos);
 
 uint8_t u_hash(uint8_t seed, char ch );
-void config_default(void);
+
 bool config_debug( char *tipo, char *valor);
-bool save_config_in_NVM(void);
-bool load_config_from_NVM(void);
 
 
-bool starting_flag;
-
-struct {   
-    bool debug;
-    float battery;
-} systemVars;
-
-struct {
-   
-    // El checksum SIEMPRE debe ser el ultimo byte !!!!!
-    uint8_t checksum;
-    
-} systemConf;
 
 uint8_t sys_watchdog;
 

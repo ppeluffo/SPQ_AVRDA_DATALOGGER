@@ -175,17 +175,17 @@ static void cmdTestFunction(void)
         return;
     }
     
-    // test vsensor cpctl,sens3v3, sens12V {enable|disable}
-    if (!strcmp_P( strupr(argv[1]), PSTR("VSENSOR"))  ) {
+    // test cpctl,sens3v3, sens12V, pwr_sensors{enable|disable}
+    if (!strcmp_P( strupr(argv[1]), PSTR("PWR_SENSORS"))  ) {
                
         if (!strcmp_P( strupr(argv[2]), PSTR("ENABLE"))  ) {
-            SET_VSENSORS();
+            SET_PWR_SENSORS();
             pv_snprintfP_OK();
             return;
         }        
 
         if (!strcmp_P( strupr(argv[2]), PSTR("DISABLE"))  ) {
-            CLEAR_VSENSORS();
+            CLEAR_PWR_SENSORS();
             pv_snprintfP_OK();
             return;
         } 
@@ -230,7 +230,7 @@ static void cmdTestFunction(void)
         return;
     }
     
-        if (!strcmp_P( strupr(argv[1]), PSTR("SENS12V"))  ) {
+    if (!strcmp_P( strupr(argv[1]), PSTR("SENS12V"))  ) {
                
         if (!strcmp_P( strupr(argv[2]), PSTR("ENABLE"))  ) {
             SET_EN_SENS12V();
@@ -248,6 +248,81 @@ static void cmdTestFunction(void)
         return;
     }
     
+    // pwr_cpres,pwr_sensext,pwr_qmbus {enable|disable}
+    if (!strcmp_P( strupr(argv[1]), PSTR("PWR_CPRES"))  ) {
+               
+        if (!strcmp_P( strupr(argv[2]), PSTR("ENABLE"))  ) {
+            SET_EN_PWR_CPRES();
+            pv_snprintfP_OK();
+            return;
+        }        
+
+        if (!strcmp_P( strupr(argv[2]), PSTR("DISABLE"))  ) {
+            CLEAR_EN_PWR_CPRES();
+            pv_snprintfP_OK();
+            return;
+        } 
+        
+        pv_snprintfP_ERR();
+        return;
+    }
+    
+    if (!strcmp_P( strupr(argv[1]), PSTR("PWR_SENSEXT"))  ) {
+               
+        if (!strcmp_P( strupr(argv[2]), PSTR("ENABLE"))  ) {
+            SET_EN_PWR_SENSEXT();
+            pv_snprintfP_OK();
+            return;
+        }        
+
+        if (!strcmp_P( strupr(argv[2]), PSTR("DISABLE"))  ) {
+            CLEAR_EN_PWR_SENSEXT();
+            pv_snprintfP_OK();
+            return;
+        } 
+        
+        pv_snprintfP_ERR();
+        return;
+    }
+
+    if (!strcmp_P( strupr(argv[1]), PSTR("PWR_QMBUS"))  ) {
+               
+        if (!strcmp_P( strupr(argv[2]), PSTR("ENABLE"))  ) {
+            SET_EN_PWR_QMBUS();
+            pv_snprintfP_OK();
+            return;
+        }        
+
+        if (!strcmp_P( strupr(argv[2]), PSTR("DISABLE"))  ) {
+            CLEAR_EN_PWR_QMBUS();
+            pv_snprintfP_OK();
+            return;
+        } 
+        
+        pv_snprintfP_ERR();
+        return;
+    }
+    
+    // rtx {on|off}
+    if (!strcmp_P( strupr(argv[1]), PSTR("RTS"))  ) {
+               
+        if (!strcmp_P( strupr(argv[2]), PSTR("ON"))  ) {
+            SET_RTS_RS485();
+            pv_snprintfP_OK();
+            return;
+        }        
+
+        if (!strcmp_P( strupr(argv[2]), PSTR("OFF"))  ) {
+            CLEAR_RTS_RS485();
+            pv_snprintfP_OK();
+            return;
+        } 
+        
+        pv_snprintfP_ERR();
+        return;
+    }
+    
+    //--------------------------------------------------------------------------
     if (!strcmp_P( strupr(argv[1]), PSTR("VALVE"))  ) {
         if ( test_valve(argv[2]) ) {
             pv_snprintfP_OK();
@@ -285,20 +360,28 @@ static void cmdHelpFunction(void)
         
     if ( !strcmp_P( strupr(argv[1]), PSTR("WRITE"))) {
 		xprintf_P( PSTR("-write:\r\n"));
-        xprintf_P( PSTR("  nvmee {pos string} {debug}\r\n"));
+        xprintf_P( PSTR("  (ee,nvmee,rtcram) {pos string} {debug}\r\n"));
+        xprintf_P( PSTR("  rtc YYMMDDhhmm\r\n"));
         xprintf_P( PSTR("  ina {confValue}\r\n"));
+        xprintf_P( PSTR("  ain_sensors_pwr {on|off}\r\n"));
         
     }  else if ( !strcmp_P( strupr(argv[1]), PSTR("READ"))) {
 		xprintf_P( PSTR("-read:\r\n"));
-        xprintf_P( PSTR("  nvmee {pos} {lenght} {debug}\r\n"));
+        xprintf_P( PSTR("  (ee,nvmee,rtcram) {pos} {lenght} {debug}\r\n"));
         xprintf_P( PSTR("  avrid,rtc {long,short}\r\n"));
-        xprintf_P( PSTR("  cnt,sens3v3,sens12v\r\n"));
+        xprintf_P( PSTR("  sens3v3,sens12v\r\n"));
         xprintf_P( PSTR("  ina {conf|chXshv|chXbusv|mfid|dieid}\r\n"));
+        xprintf_P( PSTR("  ainput {n}\r\n"));
+        xprintf_P( PSTR("  cnt, cnt_pin\r\n"));
         
     }  else if ( !strcmp_P( strupr(argv[1]), PSTR("CONFIG"))) {
 		xprintf_P( PSTR("-config:\r\n"));
-        xprintf_P( PSTR("  save\r\n"));
- 
+        xprintf_P( PSTR("  dlgid\r\n"));
+        xprintf_P( PSTR("  default, save\r\n"));
+        xprintf_P( PSTR("  timerpoll, timerdial\r\n"));
+        xprintf_P( PSTR("  pwrmodo {continuo,discreto,mixto}, pwron {hhmm}, pwroff {hhmm}\r\n"));
+        xprintf_P( PSTR("  ainput {0..%d} enable{true/false} aname imin imax mmin mmax offset\r\n"),( NRO_ANALOG_CHANNELS - 1 ) );
+        
     	// HELP RESET
 	} else if (!strcmp_P( strupr(argv[1]), PSTR("RESET"))) {
 		xprintf_P( PSTR("-reset\r\n"));
@@ -310,7 +393,9 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  kill {wan,sys}\r\n"));
         xprintf_P( PSTR("  valve {open|close}\r\n"));
         xprintf_P( PSTR("        {enable|disable}\r\n"));
-        xprintf_P( PSTR("  cpctl,sens3v3, sens12V, vsensor {enable|disable}\r\n"));
+        xprintf_P( PSTR("  sens3v3, sens12V, pwr_sensors {enable|disable}\r\n"));
+        xprintf_P( PSTR("  pwr_cpres,pwr_sensext,pwr_qmbus {enable|disable}\r\n"));
+        xprintf_P( PSTR("  rts {on|off}\r\n"));
         xprintf_P( PSTR("  lte (dcin,vcap,pwr,reset,reload} {on|off}\r\n"));
         xprintf_P( PSTR("      {on|off}\r\n"));
         xprintf_P( PSTR("      link\r\n"));
@@ -338,6 +423,52 @@ static void cmdReadFunction(void)
     
     FRTOS_CMD_makeArgv();       
     
+    // CONTADOR
+    // read cnt
+	if (!strcmp_P( strupr(argv[1]), PSTR("CNT")) ) {
+		xprintf_P(PSTR("CNT=%d\r\n"), counter_read());
+        pv_snprintfP_OK();
+		return;
+	} 
+
+    // read cnt_pin
+	if (!strcmp_P( strupr(argv[1]), PSTR("CNT_PIN")) ) {
+		xprintf_P(PSTR("CNT=%d\r\n"), counter_read_pin());
+        pv_snprintfP_OK();
+		return;
+	} 
+    
+    // AINPUT
+    // read ainput {n}
+    if (!strcmp_P( strupr(argv[1]), PSTR("AINPUT"))  ) {
+        ainputs_test_read_channel( atoi(argv[2]) ) ? pv_snprintfP_OK(): pv_snprintfP_ERR();
+		return;
+	}
+
+    // EE
+	// read ee address length
+	if (!strcmp_P( strupr(argv[1]), PSTR("EE")) ) {
+		EE_test_read ( argv[2], argv[3], argv[4] );
+		return;
+	}
+    
+    // RTC
+	// read rtc { long | short } 
+    if (!strcmp_P( strupr(argv[1]), PSTR("RTC")) ) {
+        if (!strcmp_P( strupr(argv[2]), PSTR("LONG")) ) {
+            RTC_read_time(FORMAT_LONG);
+            pv_snprintfP_OK();
+            return;
+        }
+        if (!strcmp_P( strupr(argv[2]), PSTR("SHORT")) ) {
+            RTC_read_time(FORMAT_SHORT);
+            pv_snprintfP_OK();
+            return;
+        }
+        pv_snprintfP_ERR();
+        return;
+    }
+ 
     // INA
 	// read ina regName
 	if (!strcmp_P( strupr(argv[1]), PSTR("INA"))  ) {
@@ -360,15 +491,7 @@ static void cmdReadFunction(void)
         pv_snprintfP_OK();
 		return;
 	} 
-    
-    // Contador
-    // read cnt
-	if (!strcmp_P( strupr(argv[1]), PSTR("CNT")) ) {
-		xprintf_P(PSTR("CNT=%d\r\n"), COUNTER_read());
-        pv_snprintfP_OK();
-		return;
-	}    
-    
+        
     // NVMEE
 	// read nvmee address length
 	if (!strcmp_P( strupr(argv[1]), PSTR("NVMEE")) ) {
@@ -412,19 +535,18 @@ static void cmdStatusFunction(void)
 
     // https://stackoverflow.com/questions/12844117/printing-defined-constants
 
-t_valve_status valve_status;
 
     xprintf("Spymovil %s %s TYPE=%s, VER=%s %s \r\n" , HW_MODELO, FRTOS_VERSION, FW_TYPE, FW_REV, FW_DATE);
       
-    memcpy( &valve_status, get_valve_status(), sizeof(t_valve_status));
-    if ( valve_status == VALVE_OPEN ) {
-        xprintf_P(PSTR("V1 = OPEN\r\n"));
-    } else {
-        xprintf_P(PSTR("V1 = CLOSE\r\n"));
-    }
-      
     xprintf_P(PSTR("Config:\r\n"));
+    xprintf_P(PSTR(" date: %s\r\n"), RTC_logprint(FORMAT_LONG));
+    xprintf_P(PSTR(" dlgid: %s\r\n"), systemConf.ptr_base_conf->dlgid );
+    xprintf_P(PSTR(" timerdial=%d\r\n"), systemConf.ptr_base_conf->timerdial);
+    xprintf_P(PSTR(" timerpoll=%d\r\n"), systemConf.ptr_base_conf->timerpoll);
+    u_print_pwr_configuration();
     
+    ainputs_print_configuration();
+    counter_print_configuration();
 }
 //------------------------------------------------------------------------------
 static void cmdWriteFunction(void)
@@ -432,6 +554,38 @@ static void cmdWriteFunction(void)
 
     FRTOS_CMD_makeArgv();
         
+    // ANALOG SENSORS PWR
+    // write ain_sensors_pwr {on|off}
+    if ((strcmp_P( strupr(argv[1]), PSTR("AIN_SENSORS_PWR")) == 0) ) {
+        if ((strcmp_P( strupr(argv[2]), PSTR("ON")) == 0) ) {
+            ainputs_prender_sensores();
+            pv_snprintfP_OK();
+            return;
+        }
+        
+        if ((strcmp_P( strupr(argv[2]), PSTR("OFF")) == 0) ) {
+            ainputs_apagar_sensores();
+            pv_snprintfP_OK();
+            return;
+        }        
+        pv_snprintfP_ERR();
+        return;
+    }
+
+    // EE
+	// write ee pos string
+	if ((strcmp_P( strupr(argv[1]), PSTR("EE")) == 0) ) {
+		( EE_test_write ( argv[2], argv[3], argv[4] ) > 0)?  pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}
+
+    // RTC
+	// write rtc YYMMDDhhmm
+	if ( strcmp_P( strupr(argv[1]), PSTR("RTC")) == 0 ) {
+		( RTC_write_time( argv[2]) > 0)?  pv_snprintfP_OK() : 	pv_snprintfP_ERR();
+		return;
+	}
+
     // NVMEE
 	// write nvmee pos string
 	if ( (strcmp_P( strupr(argv[1]), PSTR("NVMEE")) == 0)) {
@@ -464,7 +618,7 @@ static void cmdConfigFunction(void)
 	// SAVE
 	// config save
 	if (!strcmp_P( strupr(argv[1]), PSTR("SAVE"))) {       
-		save_config_in_NVM();
+		u_save_config_in_NVM();
 		pv_snprintfP_OK();
 		return;
 	}
@@ -472,11 +626,74 @@ static void cmdConfigFunction(void)
     // LOAD
 	// config load
 	if (!strcmp_P( strupr(argv[1]), PSTR("LOAD"))) {
-		load_config_from_NVM();
+		u_load_config_from_NVM();
 		pv_snprintfP_OK();
 		return;
 	}
     
+    // DEFAULT
+	// config default
+	if (!strcmp_P( strupr(argv[1]), PSTR("DEFAULT"))) {
+		u_config_default();
+		pv_snprintfP_OK();
+		return;
+	}
+    
+    // POWER
+    // pwr_modo {continuo,discreto,mixto}
+    if (!strcmp_P( strupr(argv[1]), PSTR("PWRMODO"))) {
+        u_config_pwrmodo(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}
+    
+    // pwr_on {hhmm}
+     if (!strcmp_P( strupr(argv[1]), PSTR("PWRON"))) {
+        u_config_pwron(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}  
+    
+    // pwr_off {hhmm}
+     if (!strcmp_P( strupr(argv[1]), PSTR("PWROFF"))) {
+        u_config_pwroff(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}   
+            
+    // DLGID
+	if (!strcmp_P( strupr(argv[1]), PSTR("DLGID"))) {
+        u_config_dlgid(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+    }
+    
+    // TIMERPOLL
+    // config timerpoll val
+	if (!strcmp_P( strupr(argv[1]), PSTR("TIMERPOLL")) ) {
+        u_config_timerpoll(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}
+    
+    // TIMERDIAL
+    // config timerdial val
+	if (!strcmp_P( strupr(argv[1]), PSTR("TIMERDIAL")) ) {
+		u_config_timerdial(argv[2]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}
+
+    // AINPUT
+	// ainput {0..%d} enable aname imin imax mmin mmax offset
+	if (!strcmp_P( strupr(argv[1]), PSTR("AINPUT")) ) {
+		ainputs_config_channel ( atoi(argv[2]), argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
+        pv_snprintfP_OK();
+		return;
+	}
+
+    // COUNTER
+    // counter enable cname magPP modo(PULSO/CAUDAL)
+	if (!strcmp_P( strupr(argv[1]), PSTR("COUNTER")) ) {
+        counter_config_channel( argv[2], argv[3], argv[4], argv[5] );
+        pv_snprintfP_OK();
+		return;
+	}
+
     // CMD NOT FOUND
 	xprintf("ERROR\r\nCMD NOT DEFINED\r\n\0");
 	return;

@@ -29,6 +29,16 @@ int16_t xRet = -1;
         xRet=0;
 		break;
          
+    case fdRS485:
+		frtos_open_uart4( flags );
+        xRet=0;
+		break;
+        
+    case fdRS485_MODBUS:
+		frtos_open_uart4( flags );
+        xRet=0;
+		break;
+
     case fdXCOMMS:
 		frtos_open_uart3( flags );
         xRet=0;
@@ -60,7 +70,15 @@ int16_t xRet = -1;
         case fdTERM:
             xRet = frtos_ioctl_uart0( ulRequest, pvValue );
             break;
-   
+
+        case fdRS485:
+            xRet = frtos_ioctl_uart4( ulRequest, pvValue );
+            break;
+
+        case fdRS485_MODBUS:
+            xRet = frtos_ioctl_uart4( ulRequest, pvValue );
+            break;
+            
         case fdXCOMMS:
             xRet = frtos_ioctl_uart3( ulRequest, pvValue );
             break;
@@ -90,7 +108,15 @@ int16_t xRet = -1;
 	case fdTERM:
 		xRet = frtos_write_uart0( pvBuffer, xBytes );
 		break;
-    
+
+    case fdRS485:
+		xRet = frtos_write_uart4( pvBuffer, xBytes );
+		break;
+        
+    case fdRS485_MODBUS:
+		xRet = frtos_write_uart4_modbus( pvBuffer, xBytes );
+		break;
+        
     case fdXCOMMS:
 		xRet = frtos_write_uart3( pvBuffer, xBytes );
 		break;
@@ -120,7 +146,15 @@ int16_t xRet = -1;
 	case fdTERM:
 		xRet = frtos_read_uart0( pvBuffer, xBytes );
 		break;
-   
+
+    case fdRS485:
+		xRet = frtos_read_uart4( pvBuffer, xBytes );
+		break;
+
+    case fdRS485_MODBUS:
+		xRet = frtos_read_uart4( pvBuffer, xBytes );
+		break;
+
     case fdXCOMMS:
 		xRet = frtos_read_uart3( pvBuffer, xBytes );
 		break;
@@ -163,6 +197,11 @@ void frtos_open_uart3(uint32_t baudrate)
     drv_uart3_init(baudrate);
 }
 //------------------------------------------------------------------------------
+void frtos_open_uart4(uint32_t baudrate)
+{
+    drv_uart4_init(baudrate);
+}
+//------------------------------------------------------------------------------
 int16_t frtos_write_uart0( const char *pvBuffer, const uint16_t xBytes )
 {
     
@@ -179,51 +218,6 @@ uint16_t i;
     return(xBytes);   
 }
 //------------------------------------------------------------------------------
-int16_t frtos_write_modbus_uart0( const char *pvBuffer, const uint16_t xBytes )
-{
-    // Hago control de flujo ya que el SP3485 debe operarse HALF-DUPLEX !!
-	// Trasmite el buffer sin considerar si tiene NULL 0x00 en el medio.
-	// Transmite en forma transparente los xBytes por poleo de modo que controlo exactamente
-	// cuando termino de transmitir c/byte.
-	//
-
-char cChar = '\0';
-char *p = NULL;
-int16_t wBytes = 0;
-uint16_t i;
-
-	// RTS ON. Habilita el sentido de trasmision del chip.
-	SET_RTS_RS485B();
-	vTaskDelay( ( TickType_t)( 5 ) );
-    p = (char *)pvBuffer;  
-    
-    // Transmision x poleo ( No hablito al INT x DRIE )
-    taskENTER_CRITICAL();
-    for( i = 0; i < xBytes; i++) {
-        while(! USART_IsTXDataRegisterEmpty(&USART0) )
-            ;
-        // Voy cargando la cola de a uno.
-		cChar = *p;
-		// Delay inter chars.(Shinco, Taosonic = 2)
-		//vTaskDelay( ( TickType_t)( 2 ) );
-        //_delay_us (1750);
-        USART_PutChar(&USART0, cChar );
-		p++;
-		wBytes++;	// Cuento los bytes que voy trasmitiendo
-        while(! USART_IsTXDataRegisterEmpty(&USART0) )
-            ;
-    }
-    
-    taskEXIT_CRITICAL();
-    frtos_ioctl( fdRS485B_MODBUS, ioctl_UART_CLEAR_RX_BUFFER, NULL );
-    vTaskDelay( ( TickType_t)( 2 ) );
-	// RTS OFF: Habilita la recepcion del chip
-	CLEAR_RTS_RS485B();
-    
-	return (wBytes);
-
-}
-//-------------------------------------------------------------------------------
 int16_t frtos_write_uart1( const char *pvBuffer, const uint16_t xBytes )
 {
     
@@ -238,53 +232,6 @@ uint16_t i;
     }
     vTaskDelay( ( TickType_t)( 1 ) );
     return(xBytes);   
-}
-//------------------------------------------------------------------------------
-int16_t frtos_write_modbus_uart1( const char *pvBuffer, const uint16_t xBytes )
-{
-   // Hago control de flujo ya que el SP3485 debe operarse HALF-DUPLEX !!
-	// Trasmite el buffer sin considerar si tiene NULL 0x00 en el medio.
-	// Transmite en forma transparente los xBytes por poleo de modo que controlo exactamente
-	// cuando termino de transmitir c/byte.
-	//
-
-char cChar = '\0';
-char *p = NULL;
-int16_t wBytes = 0;
-uint16_t i;
-
-	// RTS ON. Habilita el sentido de trasmision del chip.
-	SET_RTS_RS485A();
-	vTaskDelay( ( TickType_t)( 5 ) );  
-    p = (char *)pvBuffer;  
- 
-    // Transmision x poleo ( No hablito al INT x DRIE )
-    taskENTER_CRITICAL();
-    for( i = 0; i < xBytes; i++) {
-        // Voy cargando la cola de a uno.
-		cChar = *p;
-		// Delay inter chars.(Shinco, Taosonic = 2)
-		//vTaskDelay( ( TickType_t)( 1 ) );
-		//_delay_us (1750);
-        USART_PutChar(&USART1, cChar );
-		p++;
-		wBytes++;	// Cuento los bytes que voy trasmitiendo
-        while(! USART_IsTXDataRegisterEmpty(&USART1) )
-            ;
-    }
-    
-    taskEXIT_CRITICAL();
-    // Debo habilitar la recepcion con el RTS
-	// Primero por las dudas borro el buffer de recepcion
-    frtos_ioctl( fdRS485A_MODBUS, ioctl_UART_CLEAR_RX_BUFFER, NULL );
-	// Este delay es importante en modbus porque permite el turn-round. !!!
-	vTaskDelay( ( TickType_t)( 10 ) );
-	// RTS OFF: Habilita la recepcion del chip
-	CLEAR_RTS_RS485A();
-    
-
-	return (wBytes);
-
 }
 //------------------------------------------------------------------------------
 int16_t frtos_write_uart2( const char *pvBuffer, const uint16_t xBytes )
@@ -319,6 +266,67 @@ uint16_t i;
     return(xBytes);   
 }
 //------------------------------------------------------------------------------
+int16_t frtos_write_uart4( const char *pvBuffer, const uint16_t xBytes )
+{
+    
+uint16_t i;
+    
+    // Transmision x poleo ( No hablito al INT x DRIE )
+    //for( i = 0; i < strlen(pvBuffer); i++) {
+    for( i = 0; i < xBytes; i++) {
+        while(! USART_IsTXDataRegisterEmpty(&USART4) )
+            ;
+        USART_PutChar(&USART4, pvBuffer[i]);
+    }
+    vTaskDelay( ( TickType_t)( 1 ) );
+    return(xBytes);   
+}
+//------------------------------------------------------------------------------
+int16_t frtos_write_uart4_modbus( const char *pvBuffer, const uint16_t xBytes )
+{
+    // Hago control de flujo ya que el SP3485 debe operarse HALF-DUPLEX !!
+	// Trasmite el buffer sin considerar si tiene NULL 0x00 en el medio.
+	// Transmite en forma transparente los xBytes por poleo de modo que controlo exactamente
+	// cuando termino de transmitir c/byte.
+	//
+
+char cChar = '\0';
+char *p = NULL;
+int16_t wBytes = 0;
+uint16_t i;
+
+	// RTS ON. Habilita el sentido de trasmision del chip.
+	SET_RTS_RS485();
+	vTaskDelay( ( TickType_t)( 5 ) );
+    p = (char *)pvBuffer;  
+    
+    // Transmision x poleo ( No hablito al INT x DRIE )
+    taskENTER_CRITICAL();
+    for( i = 0; i < xBytes; i++) {
+        while(! USART_IsTXDataRegisterEmpty(&USART4) )
+            ;
+        // Voy cargando la cola de a uno.
+		cChar = *p;
+		// Delay inter chars.(Shinco, Taosonic = 2)
+		//vTaskDelay( ( TickType_t)( 2 ) );
+        //_delay_us (1750);
+        USART_PutChar(&USART4, cChar );
+		p++;
+		wBytes++;	// Cuento los bytes que voy trasmitiendo
+        while(! USART_IsTXDataRegisterEmpty(&USART4) )
+            ;
+    }
+    
+    taskEXIT_CRITICAL();
+    frtos_ioctl( fdRS485_MODBUS, ioctl_UART_CLEAR_RX_BUFFER, NULL );
+    vTaskDelay( ( TickType_t)( 2 ) );
+	// RTS OFF: Habilita la recepcion del chip
+	CLEAR_RTS_RS485();
+    
+	return (wBytes);
+
+}
+//-------------------------------------------------------------------------------
 int16_t frtos_ioctl_uart0( uint32_t ulRequest, void *pvValue )
 {
 
@@ -404,6 +412,30 @@ int16_t xReturn = 0;
 
         case ioctl_UART_CLEAR_RX_BUFFER:
 			rBchar_Flush(&RXRB_uart3);
+			break;
+            
+		default :
+			xReturn = -1;
+			break;
+	}
+
+	return xReturn;
+
+}
+//------------------------------------------------------------------------------
+int16_t frtos_ioctl_uart4( uint32_t ulRequest, void *pvValue )
+{
+
+int16_t xReturn = 0;
+
+	switch( ulRequest )
+	{
+		case ioctl_UART_CLEAR_TX_BUFFER:
+			rBchar_Flush(&TXRB_uart4);
+			break;
+
+        case ioctl_UART_CLEAR_RX_BUFFER:
+			rBchar_Flush(&RXRB_uart4);
 			break;
             
 		default :
@@ -563,6 +595,49 @@ TimeOut_t xTimeOut;
 	{
 
         if( rBchar_Pop( &RXRB_uart3, &((char *)pvBuffer)[ xBytesReceived ] ) == true ) {
+			xBytesReceived++;
+            /*
+             Recibi un byte. Re-inicio el timeout.
+             */
+            vTaskSetTimeOutState( &xTimeOut );
+			//taskYIELD();
+            //vTaskDelay( ( TickType_t)( 1 ) );
+		} else {
+			// Espero xTicksToWait antes de volver a chequear
+			vTaskDelay( ( TickType_t)( 1 ) );
+
+            // Time out has expired ?
+            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) != pdFALSE )
+            {
+                break;
+            }
+        }
+
+    }
+
+	return ( xBytesReceived );
+
+}
+//------------------------------------------------------------------------------
+int16_t frtos_read_uart4( char *pvBuffer, uint16_t xBytes )
+{
+	// Lee caracteres de la cola de recepcion y los deja en el buffer.
+	// El timeout lo fijo con ioctl.
+
+int16_t xBytesReceived = 0U;
+TickType_t xTicksToWait = 10;
+TimeOut_t xTimeOut;
+
+     /* Initialize xTimeOut.  This records the time at which this function was
+        entered. 
+      */
+	vTaskSetTimeOutState( &xTimeOut );
+
+	// Are there any more bytes to be received?
+	while( xBytesReceived < xBytes )
+	{
+
+        if( rBchar_Pop( &RXRB_uart4, &((char *)pvBuffer)[ xBytesReceived ] ) == true ) {
 			xBytesReceived++;
             /*
              Recibi un byte. Re-inicio el timeout.
