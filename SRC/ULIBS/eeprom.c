@@ -31,18 +31,17 @@ uint16_t start_address;
 	}
 
     start_address = (uint16_t)(atol(addr));
-    xprintf_P(PSTR("EETEST_WRITE: start_address=0x%04x\r\n"), start_address);
 
     if ((strcmp_P( strupr(debug), PSTR("DEBUG")) == 0) ) {
+        xprintf_P(PSTR("EETEST_WRITE: start_address=0x%04x, length=%d\r\n"), start_address, length);
+        xprintf_P(PSTR("EETEST_WRITE: debug on\r\n"));
         xBytes = EE_write( start_address, str, length, EE_DEBUG_ON );
     } else {
         xBytes = EE_write( start_address, str, length, EE_DEBUG_OFF );
     }
-
- 
     
 	if ( xBytes == -1 )
-		xprintf_P(PSTR("ERROR: I2C:EE_test_write\r\n"));
+		xprintf_P(PSTR("EETEST_WRITE: ERROR=-1\r\n"));
 
 	return(xBytes);
 }
@@ -62,9 +61,9 @@ uint16_t start_address;
 
 	// read ee {pos} {lenght}
     start_address = (uint16_t)(atol(addr));
-    xprintf_P(PSTR("EETEST_READ: start_address=0x%04x\r\n"), start_address);
     
     if ((strcmp_P( strupr(debug), PSTR("DEBUG")) == 0) ) {
+        xprintf_P(PSTR("EETEST_READ: start_address=0x%04x\r\n"), start_address);
         xBytes = EE_read( start_address, buffer, (uint8_t)(atoi(size) ), EE_DEBUG_ON );
     } else {
         xBytes = EE_read( start_address, buffer, (uint8_t)(atoi(size) ), EE_DEBUG_OFF );
@@ -86,9 +85,9 @@ int16_t EE_read( uint16_t rdAddress, char *data, uint8_t length, bool debug )
 int16_t rcode = 0;
 
     if (debug ) {
-        rcode =  I2C_read( fdI2C0, DEVADDRESS_EEPROM_M2402, rdAddress, 0x02, data, length, EE_DEBUG_ON );
+        rcode =  I2C_read( fdI2C1, DEVADDRESS_EEPROM_M2402, rdAddress, 0x02, data, length, EE_DEBUG_ON );
     } else {
-        rcode =  I2C_read( fdI2C0, DEVADDRESS_EEPROM_M2402, rdAddress, 0x02, data, length, EE_DEBUG_OFF );
+        rcode =  I2C_read( fdI2C1, DEVADDRESS_EEPROM_M2402, rdAddress, 0x02, data, length, EE_DEBUG_OFF );
     }
     
 	if ( rcode == -1 ) {
@@ -111,9 +110,10 @@ int16_t EE_write( uint16_t wrAddress, char *data, uint8_t length, bool debug )
 int16_t rcode = 0;
 
     if (debug ) {
-        rcode =  I2C_write ( fdI2C0, DEVADDRESS_EEPROM_M2402, wrAddress, 0x02, data, length, EE_DEBUG_ON );
+        xprintf_P(PSTR("EE_WRITE: debug on\r\n"));
+        rcode =  I2C_write ( fdI2C1, DEVADDRESS_EEPROM_M2402, wrAddress, 0x02, data, length, EE_DEBUG_ON );
     } else {
-        rcode =  I2C_write ( fdI2C0, DEVADDRESS_EEPROM_M2402, wrAddress, 0x02, data, length, EE_DEBUG_OFF );
+        rcode =  I2C_write ( fdI2C1, DEVADDRESS_EEPROM_M2402, wrAddress, 0x02, data, length, EE_DEBUG_OFF );
     }
     
 	if ( rcode == -1 ) {
@@ -121,7 +121,7 @@ int16_t rcode = 0;
 		// Espero 1s que se termine la fuente de ruido.
 		vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
 		// Reconfiguro los dispositivos I2C del bus que pueden haberse afectado
-		xprintf_P(PSTR("ERROR: EE_write recovering i2c bus\r\n") );
+		xprintf_P(PSTR("EE_WRITE: ERROR=-1\r\n") );
 	}
 
 	return( rcode );

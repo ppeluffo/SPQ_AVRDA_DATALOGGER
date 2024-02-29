@@ -19,7 +19,9 @@ void counter_init_outofrtos( void )
 void counter_init( void )
 {
     counter_clear();
+    contador.ticks_count = xTaskGetTickCountFromISR();
 }
+// ----------------------------------------------------------------------------- 
 void counter_config_defaults( void )
 {
     /*
@@ -187,13 +189,31 @@ char *p;
     
 }
 //------------------------------------------------------------------------------
- ISR(PORTF_PORT_vect)
+ISR(PORTF_PORT_vect)
 {
+
+float duracion_pulso;
+uint32_t ticks_now;
 
     // Borro las flags.
     if (PF4_INTERRUPT ) {
+        
         contador.pulsos++;
+        
+        // Calculo el caudal
+        ticks_now = xTaskGetTickCountFromISR();
+        duracion_pulso =  (float)(ticks_now - contador.ticks_count);    // Duracion en ticks
+        duracion_pulso /= 3600000;
+        duracion_pulso /= configTICK_RATE_HZ;                           // Duracion en hs.
+        contador.ticks_count = ticks_now;
+        if ( duracion_pulso > 0 ) {
+            contador.caudal = counter_conf.magpp / duracion_pulso;      // En mt3/h 
+        } else {
+            contador.caudal = 0.0;
+        }
+        
         PF4_CLEAR_INTERRUPT_FLAG;
+   
     }
 
 }

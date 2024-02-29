@@ -58,6 +58,8 @@ counter_conf_t counter_conf;
 typedef struct {
     uint16_t pulsos;
     float caudal;
+    uint32_t ticks_count;
+    
 } counter_value_t;
 
 counter_value_t contador;

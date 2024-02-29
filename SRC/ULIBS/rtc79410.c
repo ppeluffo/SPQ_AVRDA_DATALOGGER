@@ -45,7 +45,7 @@ int16_t RTC_read( uint16_t rdAddress, char *data, uint8_t length )
 
 int16_t rcode = 0;
 
-	rcode =  I2C_read( fdI2C0, DEVADDRESS_RTC_M79410, rdAddress, 1, data, length, false );
+	rcode =  I2C_read( fdI2C1, DEVADDRESS_RTC_M79410, rdAddress, 1, data, length, false );
 	if ( rcode == -1 ) {
 		// Hubo error: trato de reparar el bus y reintentar la operacion
 		// Espero 1s que se termine la fuente de ruido.
@@ -66,7 +66,7 @@ int16_t RTC_write( uint16_t wrAddress, char *data, uint8_t length )
 
 int16_t rcode = 0;
 
-	rcode =  I2C_write ( fdI2C0, DEVADDRESS_RTC_M79410, wrAddress, 0x01, data, length, false );
+	rcode =  I2C_write ( fdI2C1, DEVADDRESS_RTC_M79410, wrAddress, 0x01, data, length, false );
 
 	if ( rcode == -1 ) {
 		// Hubo error: trato de reparar el bus y reintentar la operacion

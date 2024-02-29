@@ -377,10 +377,11 @@ static void cmdHelpFunction(void)
     }  else if ( !strcmp_P( strupr(argv[1]), PSTR("CONFIG"))) {
 		xprintf_P( PSTR("-config:\r\n"));
         xprintf_P( PSTR("  dlgid\r\n"));
-        xprintf_P( PSTR("  default, save\r\n"));
+        xprintf_P( PSTR("  default, save, load\r\n"));
         xprintf_P( PSTR("  timerpoll, timerdial\r\n"));
         xprintf_P( PSTR("  pwrmodo {continuo,discreto,mixto}, pwron {hhmm}, pwroff {hhmm}\r\n"));
         xprintf_P( PSTR("  ainput {0..%d} enable{true/false} aname imin imax mmin mmax offset\r\n"),( NRO_ANALOG_CHANNELS - 1 ) );
+        xprintf_P( PSTR("  counter enable{true/false} cname magPP modo(PULSO/CAUDAL)\r\n") );
         
     	// HELP RESET
 	} else if (!strcmp_P( strupr(argv[1]), PSTR("RESET"))) {
@@ -479,7 +480,7 @@ static void cmdReadFunction(void)
     // SENS3V3
     // read sens3v3
 	if (!strcmp_P( strupr(argv[1]), PSTR("SENS3V3")) ) {
-		xprintf_P(PSTR("SENS3V3=%d\r\n"), ADC_read_sens3v3() );
+        u_read_bat3v3(true);
         pv_snprintfP_OK();
 		return;
 	} 
@@ -487,7 +488,7 @@ static void cmdReadFunction(void)
     // SENS12V
     // read sens12v
 	if (!strcmp_P( strupr(argv[1]), PSTR("SENS12V")) ) {
-		xprintf_P(PSTR("SENS12V=%d\r\n"), ADC_read_sens12v() );
+        u_read_bat12v(true);
         pv_snprintfP_OK();
 		return;
 	} 
@@ -547,6 +548,9 @@ static void cmdStatusFunction(void)
     
     ainputs_print_configuration();
     counter_print_configuration();
+    
+    xprintf_P(PSTR(" Frame: "));
+    u_xprint_dr( get_dataRcd_ptr());
 }
 //------------------------------------------------------------------------------
 static void cmdWriteFunction(void)

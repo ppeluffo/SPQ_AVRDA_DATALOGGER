@@ -40,8 +40,6 @@ void VALVE_init(void);
 t_valve_status *get_valve_status(void);
 
 
-
-
 #ifdef	__cplusplus
 }
 #endif

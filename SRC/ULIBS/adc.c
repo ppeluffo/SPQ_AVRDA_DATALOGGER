@@ -191,70 +191,33 @@ uint8_t ADC_get_resolution()
 uint16_t ADC_read_sens3v3(void)
 {
     
-uint16_t adc_buffer[ADC_SAMPLES];
-uint8_t i;
-float adc_acc;
+uint16_t adc_acc;
 
+    ADC_enable();
     SET_EN_SENS3V3();
     vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
     
     ADC0.MUXPOS = ADC_MUXPOS_AIN12_gc; /* ADC input pin 12 */
     adc_acc = ADC_get_conversion(ADC_MUXPOS_AIN12_gc);
     CLEAR_EN_SENS3V3();
-    return( adc_acc);
-    
- 
-    // Muestreo
-    for (i=0; i<ADC_SAMPLES; i++) {
-         adc_buffer[i]=ADC_get_conversion(ADC_MUXPOS_AIN12_gc);
-         vTaskDelay( ( TickType_t)( 10 ) );
-    }
-       
-    CLEAR_EN_SENS3V3();
-    
-    // Promedio
-    adc_acc = 0.0;
-    for (i=0; i<ADC_SAMPLES; i++) {
-        adc_acc += adc_buffer[i];
-    }
-    adc_acc /= ADC_SAMPLES;
-    
-    return( (uint16_t) adc_acc);
-    
+    ADC_disable();
+    return( adc_acc);    
 }
 //------------------------------------------------------------------------------
 uint16_t ADC_read_sens12v(void)
 {
-uint16_t adc_buffer[ADC_SAMPLES];
-uint8_t i;
-float adc_acc;
 
+uint16_t adc_acc;
+
+    ADC_enable();
     SET_EN_SENS12V();
     vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
     
     ADC0.MUXPOS = ADC_MUXPOS_AIN11_gc; /* ADC input pin 11 */
     adc_acc = ADC_get_conversion(ADC_MUXPOS_AIN11_gc);
     CLEAR_EN_SENS12V();
+    ADC_disable();
     return( adc_acc);
-    
-    // Muestreo
-    for (i=0; i<ADC_SAMPLES; i++) {
-         adc_buffer[i]=ADC_get_conversion(ADC_MUXPOS_AIN11_gc);
-         vTaskDelay( ( TickType_t)( 10 ) );
-    }
-       
-    
-    // Promedio
-    adc_acc = 0.0;
-    for (i=0; i<ADC_SAMPLES; i++) {
-        adc_acc += adc_buffer[i];
-    }
-    adc_acc /= ADC_SAMPLES;
-    
-    CLEAR_EN_SENS12V();
-    
-    return( (uint16_t) adc_acc);
-
     
 }
 //------------------------------------------------------------------------------

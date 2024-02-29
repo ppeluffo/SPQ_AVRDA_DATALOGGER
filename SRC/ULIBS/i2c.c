@@ -26,14 +26,18 @@ int16_t xReturn = 0U;
 uint8_t i2c_error_code = 0;
    
 
-    if ( i2c_debug ) 
+    if ( i2c_debug ) {
         xprintf_P(PSTR("I2C_write: devAddress=0x%02X, dataAddress=0x%02X, dataAddressLength=%d, dataLength=%d\r\n"), devAddress,dataAddress,dataAddress_length,data_length);
+        xprintf_P(PSTR("I2C_write: debug on\r\n"));
+    }
 
     frtos_ioctl( fdTWI, ioctl_OBTAIN_BUS_SEMPH, NULL);
     
     // Prendo el debug
-    if ( i2c_debug ) 
+    if ( i2c_debug ) {
+        xprintf_P(PSTR("I2C_write: ioctl set debug on\r\n"));
         frtos_ioctl( fdTWI, ioctl_I2C_SET_DEBUG, NULL);
+    }
     
 	// 1) Indicamos el periferico i2c en el cual queremos escribir ( variable de 8 bits !!! )
 	frtos_ioctl( fdTWI, ioctl_I2C_SET_DEVADDRESS, &devAddress );
@@ -54,8 +58,10 @@ uint8_t i2c_error_code = 0;
 	}
     
     // Apago el debug
-    if ( i2c_debug )
+    if ( i2c_debug ) {
+        xprintf_P(PSTR("I2C_write: ioctl set debug off\r\n"));
         frtos_ioctl( fdTWI, ioctl_I2C_CLEAR_DEBUG, NULL);
+    }
     
     frtos_ioctl( fdTWI, ioctl_RELEASE_BUS_SEMPH, NULL);
     

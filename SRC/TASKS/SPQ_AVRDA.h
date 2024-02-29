@@ -88,7 +88,7 @@ extern "C" {
 #include "rtc79410.h"
 #include "ainputs.h"
 
-#define FW_REV "1.0.0"
+#define FW_REV "0.0.1"
 #define FW_DATE "@ 20240227"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
@@ -134,6 +134,9 @@ typedef enum { PWR_CONTINUO = 0, PWR_DISCRETO, PWR_MIXTO } pwr_modo_t;
 #define DLGID_LENGTH		12
 #define TDIAL_MIN_DISCRETO  900
 
+#define BAT3V3_FACTOR ( 2.5 * 2 / 4096 )
+#define BAT12V_FACTOR ( 2.5 * 6.6 / 4096 )
+
 bool starting_flag;
 
 // Estructura que tiene el valor de las medidas en el intervalo de poleo
@@ -163,6 +166,15 @@ struct {
     counter_conf_t *ptr_counter_conf;
 } systemConf;
 
+// Tipo que define la estrucutra de las medidas tomadas.
+typedef struct {
+    float ainputs[NRO_ANALOG_CHANNELS];
+    float contador;
+    float bt3v3;
+    float bt12v;
+    RtcTimeType_t  rtc;	
+} dataRcd_s;
+
 void system_init();
 void reset(void);
 void u_print_pwr_configuration(void);
@@ -175,6 +187,13 @@ bool u_config_pwroff ( char *s_pwroff );
 void u_config_default(void);
 bool u_save_config_in_NVM(void);
 bool u_load_config_from_NVM(void);
+bool u_poll_data(dataRcd_s *dataRcd);
+void u_xprint_dr(dataRcd_s *dr);
+float u_read_bat3v3(bool debug);
+float u_read_bat12v(bool debug);
+dataRcd_s *get_dataRcd_ptr(void);
+void SYSTEM_ENTER_CRITICAL(void);
+void SYSTEM_EXIT_CRITICAL(void);
 
 // Mensajes entre tareas
 #define SGN_FRAME_READY		0x01

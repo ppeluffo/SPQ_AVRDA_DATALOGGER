@@ -68,6 +68,7 @@ bool retS = false;
 		return(retS);
 	}
 
+    AINPUTS_ENTER_CRITICAL();
     
 	if ( ( ch >=  0) && ( ch < NRO_ANALOG_CHANNELS ) ) {
 
@@ -106,6 +107,8 @@ bool retS = false;
 		retS = true;
 	}
 
+    AINPUTS_EXIT_CRITICAL();
+
 	return(retS);
 }
 //------------------------------------------------------------------------------
@@ -117,6 +120,8 @@ void ainputs_config_defaults( void )
 
 uint8_t i = 0;
 
+    AINPUTS_ENTER_CRITICAL();
+    
 	for ( i = 0; i < NRO_ANALOG_CHANNELS; i++) {
         ainputs_conf.channel[i].enabled = false;
 		ainputs_conf.channel[i].imin = 0;
@@ -128,6 +133,7 @@ uint8_t i = 0;
         strncpy( ainputs_conf.channel[i].name, "X", AIN_PARAMNAME_LENGTH );
 	}
 
+    AINPUTS_EXIT_CRITICAL();
 }
 //------------------------------------------------------------------------------
 void ainputs_print_configuration( void )
@@ -422,12 +428,10 @@ uint16_t raw;
 
     if ( ( ch == 0 ) || (ch == 1 ) || ( ch == 2) ) {
         
-        AINPUTS_ENTER_CRITICAL();
         ainputs_prender_sensores();
         ainputs_read_channel ( ch, &mag, &raw );
         xprintf_P(PSTR("AINPUT ch%d=%0.3f\r\n"), ch, mag);
         ainputs_apagar_sensores();
-        AINPUTS_EXIT_CRITICAL();
         return(true);
     } else {
         return(false);

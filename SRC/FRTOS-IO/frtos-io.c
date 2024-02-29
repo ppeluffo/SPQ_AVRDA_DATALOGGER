@@ -782,6 +782,7 @@ uint32_t *p = NULL;
 				xReturn = xI2c->i2c_error_code;
 				break;
             case ioctl_I2C_SET_DEBUG:
+                xprintf_P(PSTR("frtos_ioctl_i2c: DEBUG_ON\r\n"));
 				xI2c->debug_flag = true;
 				break;
             case ioctl_I2C_CLEAR_DEBUG:
@@ -804,8 +805,9 @@ int16_t frtos_read_i2c( volatile TWI_t *twi, periferico_i2c_port_t *xI2c, char *
 
 int16_t xReturn = 0U;
 
-    if ( xI2c->debug_flag)
-        xprintf_P(PSTR("frtos_read_i2c.\r\n"));
+    if ( xI2c->debug_flag) {
+        xprintf_P(PSTR("frtos_read_i2c: DEBUG_ON\r\n"));
+    }
 
 	if ( ( xReturn = drv_I2C_master_read( twi, xI2c->devAddress, xI2c->dataAddress, xI2c->dataAddress_length, (char *)pvBuffer, xBytes, xI2c->debug_flag)) > 0 ) {
 		xI2c->i2c_error_code = I2C_OK;
@@ -822,7 +824,7 @@ int16_t frtos_write_i2c( volatile TWI_t *twi, periferico_i2c_port_t *xI2c, const
 int16_t xReturn = 0U;
 
     if ( xI2c->debug_flag)
-        xprintf_P(PSTR("frtos_write_i2c.\r\n"));
+        xprintf_P(PSTR("frtos_write_i2c DEBUG ON\r\n"));
 
 	if ( ( xReturn = drv_I2C_master_write( twi, xI2c->devAddress, xI2c->dataAddress, xI2c->dataAddress_length, (char *)pvBuffer, xBytes, xI2c->debug_flag) ) > 0 ) {
 		xI2c->i2c_error_code = I2C_OK;

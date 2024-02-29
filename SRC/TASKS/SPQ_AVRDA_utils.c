@@ -90,8 +90,8 @@ void u_config_default(void)
     
     memcpy(systemConf.ptr_base_conf->dlgid, "DEFAULT\0", sizeof(systemConf.ptr_base_conf->dlgid));
     
-    systemConf.ptr_base_conf->timerdial = 60;
     systemConf.ptr_base_conf->timerdial = 0;
+    systemConf.ptr_base_conf->timerpoll = 60;
     
     systemConf.ptr_base_conf->pwr_modo = PWR_CONTINUO;
     systemConf.ptr_base_conf->pwr_hhmm_on = 2330;
@@ -122,9 +122,9 @@ struct {
 } memConfBuffer;
 
     // Cargamos el buffer con las configuraciones
-    memcpy( &memConfBuffer.base_conf, &base_conf, sizeof(base_conf));
-    memcpy( &memConfBuffer.ainputs_conf, &ainputs_conf, sizeof(ainputs_conf));
-    memcpy( &memConfBuffer.counter_conf, &counter_conf, sizeof(counter_conf));
+    memcpy( &memConfBuffer.base_conf, systemConf.ptr_base_conf, sizeof(base_conf));
+    memcpy( &memConfBuffer.ainputs_conf, systemConf.ptr_ainputs_conf, sizeof(ainputs_conf));
+    memcpy( &memConfBuffer.counter_conf, systemConf.ptr_counter_conf, sizeof(counter_conf));
 
     cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     memConfBuffer.checksum = cks;
@@ -144,7 +144,7 @@ bool u_load_config_from_NVM(void)
 {
 
 uint8_t rd_cks, calc_cks;
-  struct {
+struct {
     base_conf_t base_conf;
 	ainputs_conf_t ainputs_conf;
     counter_conf_t counter_conf;
@@ -164,9 +164,9 @@ uint8_t rd_cks, calc_cks;
 	}
     
     // Desarmo el buffer de memoria
-    memcpy( &base_conf, &memConfBuffer.base_conf, sizeof(base_conf));
-    memcpy( &ainputs_conf, &memConfBuffer.ainputs_conf, sizeof(ainputs_conf));
-    memcpy( &counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf));
+    memcpy( systemConf.ptr_base_conf, &memConfBuffer.base_conf, sizeof(base_conf));
+    memcpy( systemConf.ptr_ainputs_conf, &memConfBuffer.ainputs_conf, sizeof(ainputs_conf));
+    memcpy( systemConf.ptr_counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf));
     
     return(true);
 }
@@ -299,5 +299,151 @@ uint16_t hh, mm;
             break;
     }
     xprintf_P(PSTR(" pwr_on:%d, pwr_off:%d\r\n"),systemConf.ptr_base_conf->pwr_hhmm_on, systemConf.ptr_base_conf->pwr_hhmm_off );
+}
+//------------------------------------------------------------------------------
+float u_read_bat3v3(bool debug)
+{
+
+uint16_t adc = 0;
+float bat3v3 = 0.0;
+    
+    SET_EN_SENS3V3();
+    vTaskDelay( 1000 / portTICK_PERIOD_MS );
+    SYSTEM_ENTER_CRITICAL();
+    adc = ADC_read_sens3v3();
+    SYSTEM_EXIT_CRITICAL();
+    bat3v3 = 1.0 * adc * BAT3V3_FACTOR;
+    CLEAR_EN_SENS3V3();
+    if(debug) {
+        xprintf_P(PSTR("BAT3v3: adc=%d, bat3v3=%0.2f\r\n"), adc, bat3v3);
+    }
+    return (bat3v3);
+}
+//------------------------------------------------------------------------------
+float u_read_bat12v(bool debug)
+{
+uint16_t adc = 0;
+float bat12v = 0.0;
+    
+    SET_EN_SENS12V();
+    vTaskDelay( 1000 / portTICK_PERIOD_MS );
+    SYSTEM_ENTER_CRITICAL();
+    adc = ADC_read_sens12v();
+    SYSTEM_EXIT_CRITICAL();
+    bat12v = 1.0 * adc * BAT12V_FACTOR;
+    CLEAR_EN_SENS12V();
+    if(debug) {
+        xprintf_P(PSTR("BAT12v: adc=%d, bat12v=%0.2f\r\n"), adc, bat12v);
+    }
+    return (bat12v);
+}
+//------------------------------------------------------------------------------
+bool u_poll_data(dataRcd_s *dataRcd)
+{
+    /*
+     * Se encarga de leer los datos.
+     * Lo hacemos aqui asi es una funcion que se puede invocar desde Cmd.
+     */
+bool f_status;
+uint8_t channel;
+float mag;
+uint16_t raw;
+bool retS = false;
+
+    // Canales analogicos:
+    ainputs_prender_sensores();
+    
+    for ( channel = 0; channel < NRO_ANALOG_CHANNELS; channel++) {
+        mag = 0.0;
+        raw = 0;
+        if ( systemConf.ptr_ainputs_conf->channel[channel].enabled ) {
+            ainputs_read_channel ( channel, &mag, &raw );
+        }
+        dataRcd->ainputs[channel] = mag;
+    }
+    
+    ainputs_apagar_sensores();
+    
+    // Contador
+    mag = 0;
+    if ( systemConf.ptr_counter_conf->enabled ) {
+        mag = counter_read();
+        counter_clear();
+    }
+    dataRcd->contador = mag;
+    
+    // Bateria
+    dataRcd->bt3v3 = u_read_bat3v3(false);
+    dataRcd->bt12v = u_read_bat12v(false);
+    
+    // Agrego el timestamp.
+    f_status = RTC_read_dtime( &dataRcd->rtc );
+    if ( ! f_status ) {
+        xprintf_P(PSTR("u_poll_data: ERROR I2C RTC:data_read_inputs\r\n"));
+        retS = false;
+        goto quit;
+    }
+    
+    // Control de errores
+    // 1- Clock:
+    if ( dataRcd->rtc.year == 0) {
+        xprintf_P(PSTR("u_poll_data: DATA ERROR: byClock\r\n"));
+        retS = false;
+        goto quit;
+    }
+        
+    retS = true;
+    
+quit:
+            
+    return(retS);
+     
+}
+//------------------------------------------------------------------------------
+void u_xprint_dr(dataRcd_s *dr)
+{
+    /*
+     * Imprime en pantalla el dataRcd pasado
+     */
+    
+uint8_t i;
+
+    xprintf_P( PSTR("ID=%s;TYPE=%s;VER=%s;"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV);
+ 
+    // Clock
+    xprintf_P( PSTR("DATE=%02d%02d%02d;"), dr->rtc.year, dr->rtc.month, dr->rtc.day );
+    xprintf_P( PSTR("TIME=%02d%02d%02d;"), dr->rtc.hour, dr->rtc.min, dr->rtc.sec);
+    
+    // Canales Analogicos:
+    for ( i=0; i < NRO_ANALOG_CHANNELS; i++) {
+        if ( systemConf.ptr_ainputs_conf->channel[i].enabled ) {
+            xprintf_P( PSTR("%s=%0.2f;"), systemConf.ptr_ainputs_conf->channel[i].name, dr->ainputs[i]);
+        }
+    }
+        
+    // Contador
+    if ( systemConf.ptr_counter_conf->enabled) {
+        if ( systemConf.ptr_counter_conf->modo_medida == PULSOS ) {
+            xprintf_P( PSTR("%s=%d;"), systemConf.ptr_counter_conf->name, (uint16_t)(dr->contador) );
+        } else {
+            xprintf_P( PSTR("%s=%0.3f;"), systemConf.ptr_counter_conf->name, dr->contador);
+        }
+    }
+      
+    // Bateria
+    xprintf_P( PSTR("bt3v3=%0.2f;bt12v=%0.2f"), dr->bt3v3, dr->bt12v);
+    
+    xprintf_P( PSTR("\r\n"));
+}
+//------------------------------------------------------------------------------
+void SYSTEM_ENTER_CRITICAL(void)
+{
+    while ( xSemaphoreTake( sem_SYSVars, ( TickType_t ) 5 ) != pdTRUE )
+  		vTaskDelay( ( TickType_t)( 10 ) );   
+}
+//------------------------------------------------------------------------------
+void SYSTEM_EXIT_CRITICAL(void)
+{
+    xSemaphoreGive( sem_SYSVars );
 }
 //------------------------------------------------------------------------------

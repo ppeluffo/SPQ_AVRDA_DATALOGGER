@@ -23,19 +23,28 @@ void tkCtl(void * pvParameters)
 
 //uint16_t a;
 
-/*
 	vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
     xprintf_P(PSTR("Starting tkCtl..\r\n"));
     
+    ainputs_init();
+    counter_init();
+    
+    // Inicializo los punteros
+    systemConf.ptr_ainputs_conf = &ainputs_conf;
+    systemConf.ptr_counter_conf = &counter_conf;
+    systemConf.ptr_base_conf = &base_conf;
+    
     // Leo la configuracion de EE en systemConf
-    if ( ! load_config_from_NVM())  {
+    xprintf_P(PSTR("Loading config...\r\n"));
+    if ( ! u_load_config_from_NVM())  {
        xprintf_P(PSTR("Loading config default..\r\n"));
-       config_default();
+       u_config_default();
     }
-*/
-
+    
     WDG_INIT();
      
+    vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+    
     // Por ultimo habilito a todas las otras tareas a arrancar
     starting_flag = true;
     
