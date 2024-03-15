@@ -22,7 +22,6 @@ extern "C" {
 #define MODBUS_PARAMNAME_LENGTH     12
 #define NRO_MODBUS_CHANNELS         5
     
-
 typedef enum { u16=0,i16,u32,i32,FLOAT } t_modbus_types;
 typedef enum { CODEC0123, CODEC1032, CODEC3210, CODEC2301 } t_modbus_codec;
 
@@ -54,6 +53,8 @@ typedef struct {
     uint8_t localaddr;
     modbus_channel_conf_t mbch[NRO_MODBUS_CHANNELS];
 } modbus_conf_t;
+
+modbus_conf_t modbus_conf;
 
 /*
  * Los registros de modbus pueden ser enteros, long o float.
@@ -87,17 +88,14 @@ typedef struct {
 } mbus_CONTROL_BLOCK_t;
 
 
-//void modbus_update_local_config( modbus_conf_t *modbus_system_conf);
-//void modbus_read_local_config( modbus_conf_t *modbus_system_conf);
-
 void modbus_init_outofrtos( SemaphoreHandle_t semph);
 void modbus_init( int fd_modbus, int buffer_size, void (*f)(void), uint16_t (*g)(void), char *(*h)(void)  );
 
 void modbus_config_debug(bool debug );
 bool modbus_read_debug(void);
-void modbus_config_defaults(modbus_conf_t *mbc);
-void modbus_print_configuration(modbus_conf_t *mbc);
-bool modbus_config_channel( modbus_conf_t *mbc, uint8_t ch, 
+void modbus_config_defaults(void);
+void modbus_print_configuration(void);
+bool modbus_config_channel(uint8_t ch, 
         char *s_enable, 
         char *s_name, 
         char *s_sla, 
@@ -108,8 +106,8 @@ bool modbus_config_channel( modbus_conf_t *mbc, uint8_t ch,
         char *s_codec,
         char *s_pow10 );
 
-bool modbus_config_enable( modbus_conf_t *mbc, char *s_enable);
-bool modbus_config_localaddr( modbus_conf_t *mbc, char *s_localaddr);
+bool modbus_config_enable( char *s_enable);
+bool modbus_config_localaddr( char *s_localaddr);
 
 void modbus_txmit_ADU( mbus_CONTROL_BLOCK_t *mbus_cb );
 void modbus_rcvd_ADU( mbus_CONTROL_BLOCK_t *mbus_cb );
@@ -117,13 +115,13 @@ void modbus_make_ADU( mbus_CONTROL_BLOCK_t *mbus_cb );
 void modbus_decode_ADU ( mbus_CONTROL_BLOCK_t *mbus_cb );
 void modbus_io( mbus_CONTROL_BLOCK_t *mbus_cb );
 
-void modbus_read( modbus_conf_t *mbc, float modbus_values[] );
-float modbus_read_channel ( modbus_conf_t *mbc, uint8_t ch );
+void modbus_read( float modbus_values[] );
+float modbus_read_channel ( uint8_t ch );
 
 void modbus_test_genpoll(char *arg_ptr[16] );
 void modbus_print_value( mbus_CONTROL_BLOCK_t *mbus_cb );
 
-uint8_t modbus_hash( modbus_conf_t *mbc, uint8_t f_hash(uint8_t seed, char ch ));
+uint8_t modbus_hash( uint8_t f_hash(uint8_t seed, char ch ));
 
 #ifdef	__cplusplus
 }

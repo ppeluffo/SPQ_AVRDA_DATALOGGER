@@ -27,6 +27,10 @@
  * El problema esta en la funcion FLASH_0_read_eeprom_block.
  * La solución fue poner vTaskDelay( ( TickType_t)( 10 ) ) ente c/escritura de bytes.
  * 
+ * Control del tamaño de las colas:
+ * https://www.freertos.org/FAQMem.html#StackSize
+ * https://www.freertos.org/FreeRTOS_Support_Forum_Archive/November_2015/freertos_Measuring_Stack_Usage_b5706bb4j.html
+ * 
  * -----------------------------------------------------------------------------
  * Version 1.0.0 @ 2022-09-12
   * 
@@ -130,21 +134,25 @@ int main(void) {
     system_init();
     
     frtos_open(fdTERM, 9600 );
-    frtos_open(fdXCOMMS, 9600 );
+    frtos_open(fdWAN, 9600 );
     frtos_open(fdI2C1, 100 );
     frtos_open(fdNVM, 0 );
     
     sem_SYSVars = xSemaphoreCreateMutexStatic( &SYSVARS_xMutexBuffer );
+    FS_init();
     ainputs_init_outofrtos();
     counter_init_outofrtos();
     
+    task_running = 0x00;
+    sys_watchdog = 0x00;
     starting_flag = false;
     
     xHandle_tkCtl = xTaskCreateStatic( tkCtl, "CTL", tkCtl_STACK_SIZE, (void *)1, tkCtl_TASK_PRIORITY, tkCtl_Buffer, &tkCtl_Buffer_Ptr );
     xHandle_tkCmd = xTaskCreateStatic( tkCmd, "CMD", tkCmd_STACK_SIZE, (void *)1, tkCmd_TASK_PRIORITY, tkCmd_Buffer, &tkCmd_Buffer_Ptr );
     xHandle_tkSys = xTaskCreateStatic( tkSys, "SYS", tkSys_STACK_SIZE, (void *)1, tkSys_TASK_PRIORITY, tkSys_Buffer, &tkSys_Buffer_Ptr );
-    //xHandle_tkLte = xTaskCreateStatic( tkLte, "LTE", tkLte_STACK_SIZE, (void *)1, tkLte_TASK_PRIORITY, tkLte_Buffer, &tkLte_Buffer_Ptr );
-    
+    xHandle_tkWanRX = xTaskCreateStatic( tkWanRX, "WANRX", tkWanRX_STACK_SIZE, (void *)1, tkWanRX_TASK_PRIORITY, tkWanRX_Buffer, &tkWanRX_Buffer_Ptr );
+    xHandle_tkWan = xTaskCreateStatic( tkWan, "WAN", tkWan_STACK_SIZE, (void *)1, tkWan_TASK_PRIORITY, tkWan_Buffer, &tkWan_Buffer_Ptr );
+     
     /* Arranco el RTOS. */
 	vTaskStartScheduler();
   

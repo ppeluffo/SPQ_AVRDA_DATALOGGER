@@ -76,7 +76,7 @@ uint16_t timeout = 10;
 char *p;
 
     LTE_flush_buffer();
-    xfprintf_P( fdXCOMMS, PSTR("CLASS=TEST&EQUIPO=SPQ_AVRDA"));
+    xfprintf_P( fdWAN, PSTR("CLASS=TEST&EQUIPO=SPQ_AVRDA"));
     vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
     
     p = LTE_buffer_ptr();

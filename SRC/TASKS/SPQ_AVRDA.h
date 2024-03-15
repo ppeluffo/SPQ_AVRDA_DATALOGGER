@@ -56,7 +56,6 @@ extern "C" {
 #include "timers.h"
 #include "limits.h"
 #include "portable.h"
-
 #include "protected_io.h"
 #include "ccp.h"
 
@@ -77,34 +76,39 @@ extern "C" {
 #include "nvm.h"
 #include "led.h"
 #include "pines.h"
-#include "toyi_valves.h"
 #include "linearBuffer.h"
 #include "fileSystem.h"
-#include "contadores.h"
 #include "adc.h"
 #include "lte.h"
 #include "i2c.h"
 #include "ina3221.h"
 #include "rtc79410.h"
 #include "ainputs.h"
+#include "contadores.h"
+#include "toyi_valves.h"
+#include "consignas.h"
 
 #define FW_REV "0.0.1"
-#define FW_DATE "@ 20240227"
+#define FW_DATE "@ 20240315"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
-#define FW_TYPE "DLG"
+#define FW_TYPE "SPQ"
 
 #define SYSMAINCLK 24
 
 #define tkCtl_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 #define tkCmd_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 #define tkSys_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
-#define tkLte_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkWanRX_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkWan_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkCtlPresion_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 
 #define tkCtl_STACK_SIZE		384
 #define tkCmd_STACK_SIZE		384
 #define tkSys_STACK_SIZE		384
-#define tkLte_STACK_SIZE		384
+#define tkWanRX_STACK_SIZE		384
+#define tkWan_STACK_SIZE		512
+#define tkCtlPresion_STACK_SIZE	384
 
 StaticTask_t tkCtl_Buffer_Ptr;
 StackType_t tkCtl_Buffer [tkCtl_STACK_SIZE];
@@ -115,25 +119,34 @@ StackType_t tkCmd_Buffer [tkCmd_STACK_SIZE];
 StaticTask_t tkSys_Buffer_Ptr;
 StackType_t tkSys_Buffer [tkSys_STACK_SIZE];
 
-StaticTask_t tkLte_Buffer_Ptr;
-StackType_t tkLte_Buffer [tkLte_STACK_SIZE];
+StaticTask_t tkWanRX_Buffer_Ptr;
+StackType_t tkWanRX_Buffer [tkWanRX_STACK_SIZE];
+
+StaticTask_t tkWan_Buffer_Ptr;
+StackType_t tkWan_Buffer [tkWan_STACK_SIZE];
+
+StaticTask_t tkCtlPresion_Buffer_Ptr;
+StackType_t tkCtlPresion_Buffer [tkCtlPresion_STACK_SIZE];
 
 SemaphoreHandle_t sem_SYSVars;
 StaticSemaphore_t SYSVARS_xMutexBuffer;
 #define MSTOTAKESYSVARSSEMPH ((  TickType_t ) 10 )
 
-TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkLte;
+TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkWanRX, xHandle_tkWan, xHandle_tkCtlPresion;
 
 void tkCtl(void * pvParameters);
 void tkCmd(void * pvParameters);
 void tkSys(void * pvParameters);
-void tkLte(void * pvParameters);
+void tkWanRX(void * pvParameters);
+void tkWan(void * pvParameters);
+void tkCtlPresion(void *pvParameters);
 
 typedef enum { PWR_CONTINUO = 0, PWR_DISCRETO, PWR_MIXTO } pwr_modo_t;
 
 #define DLGID_LENGTH		12
 #define TDIAL_MIN_DISCRETO  900
 
+#define BAT_SAMPLES 16
 #define BAT3V3_FACTOR ( 2.5 * 2 / 4096 )
 #define BAT12V_FACTOR ( 2.5 * 6.6 / 4096 )
 
@@ -164,6 +177,7 @@ struct {
     base_conf_t *ptr_base_conf;
 	ainputs_conf_t *ptr_ainputs_conf;
     counter_conf_t *ptr_counter_conf;
+    consigna_conf_t *ptr_consigna_conf;
 } systemConf;
 
 // Tipo que define la estrucutra de las medidas tomadas.
@@ -194,27 +208,39 @@ float u_read_bat12v(bool debug);
 dataRcd_s *get_dataRcd_ptr(void);
 void SYSTEM_ENTER_CRITICAL(void);
 void SYSTEM_EXIT_CRITICAL(void);
+void u_data_resync_clock( char *str_time, bool force_adjust);
+void u_reset_memory_remote(void);
+uint8_t u_confbase_hash(void);
+bool u_config_debug( char *tipo, char *valor);
+void u_print_tasks_running(void);
+void u_kick_wdt( uint8_t wdg_gc);
+uint8_t u_hash(uint8_t seed, char ch );
+uint16_t u_hhmm_to_mins(uint16_t hhmm);
+void u_check_stacks_usage(void);
+
+bool WAN_process_data_rcd( dataRcd_s *dataRcd);
+void WAN_print_configuration(void);
 
 // Mensajes entre tareas
-#define SGN_FRAME_READY		0x01
-
-void kick_wdt( uint8_t bit_pos);
-
-uint8_t u_hash(uint8_t seed, char ch );
-
-bool config_debug( char *tipo, char *valor);
-
-
+#define SIGNAL_FRAME_READY		0x01
 
 uint8_t sys_watchdog;
+uint8_t task_running;
 
-#define CMD_WDG_bp    0
-#define SYS_WDG_bp    1
-#define XCMA_WDG_bp   2
+#define CMD_WDG_bp     0x01
+#define SYS_WDG_bp     0x02
+#define WAN_WDG_bp     0x04
+#define WANRX_WDG_bp   0x08
+#define CTLPRES_WDG_bp  0x10
+
+#define CMD_WDG_gc          (0x01 << 0)
+#define SYS_WDG_gc          (0x01 << 1)
+#define WAN_WDG_gc          (0x01 << 2)
+#define WANRX_WDG_gc        (0x01 << 3)
+#define CTLPRES_WDG_gc      (0x01 << 4)
 
 // No habilitado PLT_WDG !!!
-#define WDG_bm 0x3
-
+#define WDG_bm 0x1F     // Pone todos los bits habilitados en 1
 #define WDG_INIT() ( sys_watchdog = WDG_bm )
 
 #endif	/* XC_HEADER_TEMPLATE_H */

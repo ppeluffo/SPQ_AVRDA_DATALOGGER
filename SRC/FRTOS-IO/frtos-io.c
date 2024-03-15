@@ -39,7 +39,7 @@ int16_t xRet = -1;
         xRet=0;
 		break;
 
-    case fdXCOMMS:
+    case fdWAN:
 		frtos_open_uart3( flags );
         xRet=0;
 		break;
@@ -79,7 +79,7 @@ int16_t xRet = -1;
             xRet = frtos_ioctl_uart4( ulRequest, pvValue );
             break;
             
-        case fdXCOMMS:
+        case fdWAN:
             xRet = frtos_ioctl_uart3( ulRequest, pvValue );
             break;
             
@@ -117,7 +117,7 @@ int16_t xRet = -1;
 		xRet = frtos_write_uart4_modbus( pvBuffer, xBytes );
 		break;
         
-    case fdXCOMMS:
+    case fdWAN:
 		xRet = frtos_write_uart3( pvBuffer, xBytes );
 		break;
      
@@ -155,7 +155,7 @@ int16_t xRet = -1;
 		xRet = frtos_read_uart4( pvBuffer, xBytes );
 		break;
 
-    case fdXCOMMS:
+    case fdWAN:
 		xRet = frtos_read_uart3( pvBuffer, xBytes );
 		break;
         

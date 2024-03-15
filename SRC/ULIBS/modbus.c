@@ -1,8 +1,6 @@
 
 #include "modbus.h"
 #include "math.h"
-#include "CPRES.h"
-
 
 static bool f_debug_modbus;
 
@@ -77,27 +75,27 @@ bool modbus_read_debug(void)
     return (f_debug_modbus);
 }
 //------------------------------------------------------------------------------
-void modbus_config_defaults( modbus_conf_t *mbc)
+void modbus_config_defaults( void )
 {
 
 uint8_t i;
 
-    mbc->enabled = false;
-    mbc->localaddr = 0x01;
+    modbus_conf.enabled = false;
+    modbus_conf.localaddr = 0x01;
 	for ( i = 0; i < NRO_MODBUS_CHANNELS; i++ ) {
-        mbc->mbch[i].enabled = false;
-        strncpy( mbc->mbch[i].name, "X", MODBUS_PARAMNAME_LENGTH);
-		mbc->mbch[i].slave_address = 0;
-		mbc->mbch[i].reg_address = 0;
-        mbc->mbch[i].nro_regs = 1;
-        mbc->mbch[i].fcode = 3;
-		mbc->mbch[i].type = u16;
-		mbc->mbch[i].codec = CODEC0123;
-		mbc->mbch[i].divisor_p10 = 0;
+        modbus_conf.mbch[i].enabled = false;
+        strncpy( modbus_conf.mbch[i].name, "X", MODBUS_PARAMNAME_LENGTH);
+		modbus_conf.mbch[i].slave_address = 0;
+		modbus_conf.mbch[i].reg_address = 0;
+        modbus_conf.mbch[i].nro_regs = 1;
+        modbus_conf.mbch[i].fcode = 3;
+		modbus_conf.mbch[i].type = u16;
+		modbus_conf.mbch[i].codec = CODEC0123;
+		modbus_conf.mbch[i].divisor_p10 = 0;
 	};
 }
 //------------------------------------------------------------------------------
-void modbus_print_configuration(modbus_conf_t *mbc)
+void modbus_print_configuration(void)
 {
 uint8_t i = 0;
 
@@ -105,36 +103,36 @@ uint8_t i = 0;
     xprintf_P(PSTR(" debug: "));
     f_debug_modbus ? xprintf_P(PSTR("true\r\n")) : xprintf_P(PSTR("false\r\n"));
 
-    if ( mbc->enabled ) {
+    if ( modbus_conf.enabled ) {
         xprintf_P(PSTR(" status=enabled\r\n"));
     } else {
          xprintf_P(PSTR(" status=disabled\r\n"));
     }
     
     // Si esta deshabilitado no tengo porque mostrar los canales.
-    if ( ! mbc->enabled ) {
+    if ( ! modbus_conf.enabled ) {
         return;
     }
     
-    xprintf_P(PSTR(" localaddr:0x%02x\r\n"), mbc->localaddr);
+    xprintf_P(PSTR(" localaddr:0x%02x\r\n"), modbus_conf.localaddr);
     
     
 	for ( i = 0; i < NRO_MODBUS_CHANNELS; i++) {
  
-        if ( mbc->mbch[i].enabled ) {
+        if ( modbus_conf.mbch[i].enabled ) {
             xprintf_P( PSTR(" M%02d: +"),i);
         } else {
             xprintf_P( PSTR(" M%02d: -"),i);
         }
                 
         xprintf_P( PSTR("[%s,%d,%d,%d,%d,"),
-            mbc->mbch[i].name,
-            mbc->mbch[i].slave_address,
-            mbc->mbch[i].reg_address,
-            mbc->mbch[i].nro_regs, 
-            mbc->mbch[i].fcode );
+            modbus_conf.mbch[i].name,
+            modbus_conf.mbch[i].slave_address,
+            modbus_conf.mbch[i].reg_address,
+            modbus_conf.mbch[i].nro_regs, 
+            modbus_conf.mbch[i].fcode );
 
-        switch(	mbc->mbch[i].type ) {
+        switch(	modbus_conf.mbch[i].type ) {
             case u16:
             	xprintf_P(PSTR("U16,"));
                 break;
@@ -152,7 +150,7 @@ uint8_t i = 0;
             	break;
         }
 
-        switch(	mbc->mbch[i].codec ) {
+        switch(	modbus_conf.mbch[i].codec ) {
             case CODEC0123:
                 xprintf_P(PSTR("c0123,"));
                 break;
@@ -167,30 +165,30 @@ uint8_t i = 0;
                 break;
         }
 
-        xprintf_P( PSTR("%d]\r\n"), mbc->mbch[i].divisor_p10	);
+        xprintf_P( PSTR("%d]\r\n"), modbus_conf.mbch[i].divisor_p10	);
 	}
 
 }
 //------------------------------------------------------------------------------
-bool modbus_config_enable( modbus_conf_t *mbc, char *s_enable)
+bool modbus_config_enable( char *s_enable)
 {
     if (!strcmp_P( strupr(s_enable), PSTR("TRUE"))  ) {
-        mbc->enabled = true;
+        modbus_conf.enabled = true;
         return (true);
     } else if (!strcmp_P( strupr(s_enable), PSTR("FALSE"))  ) {
-        mbc->enabled = false;
+        modbus_conf.enabled = false;
         return (true);
     }
     return (false);
 }
 //------------------------------------------------------------------------------
-bool modbus_config_localaddr( modbus_conf_t *mbc, char *s_localaddr)
+bool modbus_config_localaddr( char *s_localaddr)
 {
-    mbc->localaddr = atoi(s_localaddr);
+    modbus_conf.localaddr = atoi(s_localaddr);
     return (true);
 }
 //------------------------------------------------------------------------------
-bool modbus_config_channel( modbus_conf_t *mbc, uint8_t ch, 
+bool modbus_config_channel( uint8_t ch, 
         char *s_enable, 
         char *s_name, 
         char *s_sla, 
@@ -232,49 +230,49 @@ bool retS = false;
  
         // Enable ?
         if (!strcmp_P( strupr(s_enable), PSTR("TRUE"))  ) {
-            mbc->mbch[ch].enabled = true;
+            modbus_conf.mbch[ch].enabled = true;
         } else if (!strcmp_P( strupr(s_enable), PSTR("FALSE"))  ) {
-            mbc->mbch[ch].enabled = false;
+            modbus_conf.mbch[ch].enabled = false;
         }
         
-		strncpy( mbc->mbch[ch].name, s_name, MODBUS_PARAMNAME_LENGTH );
+		strncpy( modbus_conf.mbch[ch].name, s_name, MODBUS_PARAMNAME_LENGTH );
         //xprintf_P(PSTR("MBDEBUG: name=%s\r\n"), modbus_conf->mbch[channel].name );
                 
         if ( s_sla != NULL ) {
-            mbc->mbch[ch].slave_address = atoi(s_sla);
+            modbus_conf.mbch[ch].slave_address = atoi(s_sla);
             //xprintf_P(PSTR("MBDEBUG: sla=%d\r\n"), modbus_conf->mbch[channel].slave_address );
         }
         
         if ( s_regaddr != NULL ) {
-            mbc->mbch[ch].reg_address = atoi(s_regaddr);
+            modbus_conf.mbch[ch].reg_address = atoi(s_regaddr);
             //xprintf_P(PSTR("MBDEBUG: reg_addr=%d\r\n"), modbus_conf->mbch[channel].reg_address );
         }
 
         if ( s_nroregs != NULL ) {
-            mbc->mbch[ch].nro_regs = atoi(s_nroregs);
+            modbus_conf.mbch[ch].nro_regs = atoi(s_nroregs);
             //xprintf_P(PSTR("MBDEBUG: nro_regs=%d\r\n"), modbus_conf->mbch[channel].nro_regs );
         }
 
         if ( s_fcode != NULL ) {
-            mbc->mbch[ch].fcode = atoi(s_fcode);
+            modbus_conf.mbch[ch].fcode = atoi(s_fcode);
             //xprintf_P(PSTR("MBDEBUG: fcode=%d\r\n"), modbus_conf->mbch[channel].fcode );
         }
 
         // mTipo
         if ( !strcmp_P( strupr(s_mtype), PSTR("U16"))) {
-            mbc->mbch[ch].type = u16;
+            modbus_conf.mbch[ch].type = u16;
 
         } else 	if ( !strcmp_P( strupr(s_mtype), PSTR("I16"))) {
-            mbc->mbch[ch].type = i16;
+            modbus_conf.mbch[ch].type = i16;
 
         } else 	if ( !strcmp_P( strupr(s_mtype), PSTR("U32"))) {
-            mbc->mbch[ch].type = u32;
+            modbus_conf.mbch[ch].type = u32;
 
         } else 	if ( !strcmp_P( strupr(s_mtype), PSTR("I32"))) {
-            mbc->mbch[ch].type = i32;
+            modbus_conf.mbch[ch].type = i32;
 
         } else 	if ( !strcmp_P( strupr(s_mtype), PSTR("FLOAT"))) {
-            mbc->mbch[ch].type = FLOAT;
+            modbus_conf.mbch[ch].type = FLOAT;
 
         } else {
             //xprintf_P(PSTR("MODBUS CONFIG ERROR: type [%s]\r\n"), s_mtype );
@@ -285,16 +283,16 @@ bool retS = false;
          
         // Codec
         if ( !strcmp_P( strupr(s_codec), PSTR("C0123"))) {
-            mbc->mbch[ch].codec = CODEC0123;
+            modbus_conf.mbch[ch].codec = CODEC0123;
 
         } else 	if ( !strcmp_P( strupr(s_codec), PSTR("C1032"))) {
-            mbc->mbch[ch].codec = CODEC1032;
+            modbus_conf.mbch[ch].codec = CODEC1032;
 
         } else 	if ( !strcmp_P( strupr(s_codec), PSTR("C3210"))) {
-            mbc->mbch[ch].codec = CODEC3210;
+            modbus_conf.mbch[ch].codec = CODEC3210;
 
         } else 	if ( !strcmp_P( strupr(s_codec), PSTR("C2301"))) {
-            mbc->mbch[ch].codec = CODEC2301;
+            modbus_conf.mbch[ch].codec = CODEC2301;
 
         } else {
             xprintf_P(PSTR("MODBUS CONFIG ERROR: codec [%s]\r\n"), s_codec );
@@ -305,7 +303,7 @@ bool retS = false;
  
         
         if ( s_pow10 != NULL ) {
-            mbc->mbch[ch].divisor_p10 = atoi(s_pow10);
+            modbus_conf.mbch[ch].divisor_p10 = atoi(s_pow10);
         }
 
         //xprintf_P(PSTR("MBDEBUG: pow10=%d\r\n"), modbus_conf->mbch[channel].divisor_p10 );
@@ -640,7 +638,7 @@ quit:
 
 }
 //------------------------------------------------------------------------------
-void modbus_read( modbus_conf_t *mbc, float modbus_values[] )
+void modbus_read( float modbus_values[] )
 {
 	// Lee todos los canales modbus configurados y deja los valores en el correspondiente
 	// luegar del array del parametro.
@@ -649,16 +647,16 @@ void modbus_read( modbus_conf_t *mbc, float modbus_values[] )
 uint8_t ch;
 
     // EL modbus debe estar habilitado
-    if ( ! mbc->enabled ) {
+    if ( ! modbus_conf.enabled ) {
         return;
     }
 
 	// Poleo
 	for ( ch = 0; ch < NRO_MODBUS_CHANNELS; ch++) {
 		// Si un canal no esta definido, salgo
-        if ( mbc->mbch[ch].enabled ) {
+        if ( modbus_conf.mbch[ch].enabled ) {
             // Leemos el canal
-        	modbus_values[ch] = modbus_read_channel ( mbc, ch );
+        	modbus_values[ch] = modbus_read_channel ( ch );
         }
     }
 
@@ -666,7 +664,7 @@ uint8_t ch;
     
 }
 //------------------------------------------------------------------------------
-float modbus_read_channel ( modbus_conf_t *mbc, uint8_t ch )
+float modbus_read_channel ( uint8_t ch )
 {
 	/*
 	 *  Poleo un canal.
@@ -684,7 +682,7 @@ float pvalue = 0.0;
 	// Preparo el registro CONTROL BLOCK con los datos del canal
 	// Son operaciones de READ que siempre devuelven floats.
     memset( &mbus_cb, '\0', sizeof(mbus_CONTROL_BLOCK_t));
-	memcpy( &mbus_cb.channel, &mbc->mbch[ch], sizeof(modbus_channel_conf_t));
+	memcpy( &mbus_cb.channel, &modbus_conf.mbch[ch], sizeof(modbus_channel_conf_t));
 	//
 	modbus_io( &mbus_cb );
 	//
@@ -1168,7 +1166,7 @@ float pvalue;
 	}
 }
 //------------------------------------------------------------------------------
-uint8_t modbus_hash( modbus_conf_t *mbc, uint8_t f_hash(uint8_t seed, char ch )  )
+uint8_t modbus_hash( uint8_t f_hash(uint8_t seed, char ch )  )
 {
      /*
       * Calculo el hash de la configuracion de modbus.
@@ -1183,10 +1181,10 @@ uint8_t hash_buffer[64];
 
     memset(hash_buffer, '\0', sizeof(hash_buffer) );
     j = 0;
-    if ( mbc->enabled ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[TRUE,%02d]"),mbc->localaddr);
+    if ( modbus_conf.enabled ) {
+        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[TRUE,%02d]"),modbus_conf.localaddr);
     } else {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[FALSE,%02d]"),mbc->localaddr);
+        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[FALSE,%02d]"),modbus_conf.localaddr);
     }
     p = (char *)hash_buffer;
     while (*p != '\0') {
@@ -1199,22 +1197,22 @@ uint8_t hash_buffer[64];
         j = 0;
         j += sprintf_P( (char *)&hash_buffer[j], PSTR("[M%d:"), i);
         
-        if (mbc->mbch[i].enabled ) {
+        if (modbus_conf.mbch[i].enabled ) {
             j += sprintf_P( (char *)&hash_buffer[j], PSTR("TRUE,"));
         } else {
             j += sprintf_P( (char *)&hash_buffer[j], PSTR("FALSE,"));
         }
         
         j += sprintf_P( (char *)&hash_buffer[j], PSTR("%s,%02d,%04d,%02d,%02d,"),
-				mbc->mbch[i].name,
-				mbc->mbch[i].slave_address,
-				mbc->mbch[i].reg_address,
-				mbc->mbch[i].nro_regs,
-				mbc->mbch[i].fcode
+				modbus_conf.mbch[i].name,
+				modbus_conf.mbch[i].slave_address,
+				modbus_conf.mbch[i].reg_address,
+				modbus_conf.mbch[i].nro_regs,
+				modbus_conf.mbch[i].fcode
 			); 
         
         // TYPE
-		switch( mbc->mbch[i].type ) {
+		switch( modbus_conf.mbch[i].type ) {
 		case u16:
 			j += sprintf_P( (char *)&hash_buffer[j], PSTR("U16,"));
 			break;
@@ -1233,7 +1231,7 @@ uint8_t hash_buffer[64];
 		}
 
 		// CODEC
-		switch( mbc->mbch[i].codec ) {
+		switch( modbus_conf.mbch[i].codec ) {
 		case CODEC0123:
 			j += sprintf_P( (char *)&hash_buffer[j], PSTR("C0123,"));
 			break;
@@ -1248,7 +1246,7 @@ uint8_t hash_buffer[64];
 			break;
 		}
 
-		j += sprintf_P( (char *)&hash_buffer[j], PSTR("%02d]"), mbc->mbch[i].divisor_p10 );
+		j += sprintf_P( (char *)&hash_buffer[j], PSTR("%02d]"), modbus_conf.mbch[i].divisor_p10 );
 
         p = (char *)hash_buffer;
         while (*p != '\0') {

@@ -5,11 +5,10 @@
  */
 
 
-#include "spxR2.h"
-#include "piloto.h"
+#include "SPQ_AVRDA.h"
 
 //------------------------------------------------------------------------------
-void tkPiloto(void * pvParameters)
+void tkCtlPresion(void * pvParameters)
 {
 
 	/*
@@ -23,15 +22,16 @@ void tkPiloto(void * pvParameters)
 
 
 	while (! starting_flag )
-		vTaskDelay( ( TickType_t)( 100 / portTICK_PERIOD_MS ) );
+		vTaskDelay( ( TickType_t)( 200 / portTICK_PERIOD_MS ) );
 
+    SYSTEM_ENTER_CRITICAL();
+    task_running |= CTLPRES_WDG_gc;
+    SYSTEM_EXIT_CRITICAL();
+    
 	vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
-    xprintf_P(PSTR("Starting tkPiloto..\r\n"));
+    xprintf_P(PSTR("Starting tkCtlPresion..\r\n"));
     
-    // Inicialmente abro la valvula.
-    if ( ! piloto_configurado())
-        valve_A_open();
-    
+   
 	for( ;; )
 	{
         /*
@@ -39,14 +39,13 @@ void tkPiloto(void * pvParameters)
          * que se realmacene la orden de un mismo tslot
          * 
          */
+        u_kick_wdt(CTLPRES_WDG_gc);
 		vTaskDelay( ( TickType_t)( 30000 / portTICK_PERIOD_MS ) );
         
-        if ( ! piloto_configurado())
-            continue;
+        if ( systemConf.ptr_consigna_conf->enabled ) {
+            consigna_service();
+        }
         
-        piloto_productor();
-        piloto_consumidor();
-
 	}
 }
 //------------------------------------------------------------------------------

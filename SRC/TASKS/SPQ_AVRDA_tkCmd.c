@@ -16,6 +16,8 @@ static void pv_snprintfP_ERR(void );
 
 static bool test_valve( char *action);
 
+//uint16_t uxHighWaterMark;
+
 //------------------------------------------------------------------------------
 void tkCmd(void * pvParameters)
 {
@@ -23,14 +25,20 @@ void tkCmd(void * pvParameters)
 	// Esta es la primer tarea que arranca.
 
 ( void ) pvParameters;
+uint8_t c = 0;
 
+ //   uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+    
     while ( ! starting_flag )
         vTaskDelay( ( TickType_t)( 100 / portTICK_PERIOD_MS ) );
 
+    SYSTEM_ENTER_CRITICAL();
+    task_running |= CMD_WDG_gc;
+    SYSTEM_EXIT_CRITICAL();
+             
 	//vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
 
-uint8_t c = 0;
-//uint16_t sleep_timeout;
+ //   xprintf_P(PSTR("STACK::cmd_hwm 1 = %d\r\n"),uxHighWaterMark );
 
     FRTOS_CMD_init();
 
@@ -46,16 +54,22 @@ uint8_t c = 0;
     xprintf_P(PSTR("Starting tkCmd..\r\n" ));
     xprintf_P(PSTR("Spymovil %s %s %s %s \r\n") , HW_MODELO, FRTOS_VERSION, FW_REV, FW_DATE);
       
+ //   uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+ //   xprintf_P(PSTR("STACK::cmd_hwm 2 = %d\r\n"),uxHighWaterMark );
+    
 	// loop
 	for( ;; )
 	{
-        kick_wdt(CMD_WDG_bp);
+        u_kick_wdt(CMD_WDG_gc);
          
 		c = '\0';	// Lo borro para que luego del un CR no resetee siempre el timer.
 		// el read se bloquea 10ms. lo que genera la espera.
 		//while ( frtos_read( fdTERM, (char *)&c, 1 ) == 1 ) {
         while ( xgetc( (char *)&c ) == 1 ) {
             FRTOS_CMD_process(c);
+            
+//            uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+//            xprintf_P(PSTR("STACK::cmd_hwm 3 = %d\r\n"),uxHighWaterMark );
         }
         
         // Espero 10ms si no hay caracteres en el buffer
@@ -69,6 +83,31 @@ static void cmdTestFunction(void)
 
     FRTOS_CMD_makeArgv();
 
+    // STACKS SIZE
+    if (!strcmp_P( strupr(argv[1]), PSTR("STACKS"))  ) {
+        u_check_stacks_usage();
+        pv_snprintfP_OK();
+        return;
+    }
+    
+    // test consigna {diurna|nocturna}
+    if (!strcmp_P( strupr(argv[1]), PSTR("CONSIGNA"))  ) {
+        if (!strcmp_P( strupr(argv[2]), PSTR("DIURNA"))  ) {
+            consigna_set_diurna();
+            pv_snprintfP_OK();
+            return;
+        }
+        
+        if (!strcmp_P( strupr(argv[2]), PSTR("NOCTURNA"))  ) {
+            consigna_set_nocturna();
+            pv_snprintfP_OK();
+            return;
+        }
+   
+        pv_snprintfP_ERR();
+        return;  
+    }
+    
     // test lte (dcin,vcap,pwr,reset,reload} {on|off}
     if (!strcmp_P( strupr(argv[1]), PSTR("LTE"))  ) {
       
@@ -339,10 +378,34 @@ static void cmdTestFunction(void)
             if ( xHandle_tkSys != NULL ) {
                 vTaskSuspend( xHandle_tkSys );
                 xHandle_tkSys = NULL;
+                SYSTEM_ENTER_CRITICAL();
+                task_running &= ~SYS_WDG_gc;
+                SYSTEM_EXIT_CRITICAL();
             }
             pv_snprintfP_OK();
             return;
-        }        
+        } 
+        
+        if (!strcmp_P( strupr(argv[2]), PSTR("WAN"))  ) {
+            
+            if ( xHandle_tkWan != NULL ) {
+                vTaskSuspend( xHandle_tkWan );
+                SYSTEM_ENTER_CRITICAL();
+                task_running &= ~WAN_WDG_gc;
+                SYSTEM_EXIT_CRITICAL();
+                xHandle_tkWan = NULL;
+            }
+            if ( xHandle_tkWanRX != NULL ) {
+                vTaskSuspend( xHandle_tkWanRX );
+                SYSTEM_ENTER_CRITICAL();
+                task_running &= ~WANRX_WDG_gc;
+                SYSTEM_EXIT_CRITICAL();
+                xHandle_tkWanRX = NULL;
+            }
+            pv_snprintfP_OK();
+            return;
+        } 
+        
 
         pv_snprintfP_ERR();
         return;
@@ -379,9 +442,11 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  dlgid\r\n"));
         xprintf_P( PSTR("  default, save, load\r\n"));
         xprintf_P( PSTR("  timerpoll, timerdial\r\n"));
+        xprintf_P( PSTR("  debug {ainput,counter} {true/false}\r\n"));
         xprintf_P( PSTR("  pwrmodo {continuo,discreto,mixto}, pwron {hhmm}, pwroff {hhmm}\r\n"));
         xprintf_P( PSTR("  ainput {0..%d} enable{true/false} aname imin imax mmin mmax offset\r\n"),( NRO_ANALOG_CHANNELS - 1 ) );
         xprintf_P( PSTR("  counter enable{true/false} cname magPP modo(PULSO/CAUDAL)\r\n") );
+        xprintf_P( PSTR("  consigna enable hhmm_diurna hhmm_nocturna\r\n") );
         
     	// HELP RESET
 	} else if (!strcmp_P( strupr(argv[1]), PSTR("RESET"))) {
@@ -394,6 +459,7 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  kill {wan,sys}\r\n"));
         xprintf_P( PSTR("  valve {open|close}\r\n"));
         xprintf_P( PSTR("        {enable|disable}\r\n"));
+        xprintf_P( PSTR("  consigna {diurna|nocturna}\r\n"));
         xprintf_P( PSTR("  sens3v3, sens12V, pwr_sensors {enable|disable}\r\n"));
         xprintf_P( PSTR("  pwr_cpres,pwr_sensext,pwr_qmbus {enable|disable}\r\n"));
         xprintf_P( PSTR("  rts {on|off}\r\n"));
@@ -526,7 +592,32 @@ static void cmdResetFunction(void)
 {
     
     FRTOS_CMD_makeArgv();
-    
+  
+    // Reset memory ??
+    if (!strcmp_P( strupr(argv[1]), PSTR("MEMORY"))) {
+        
+        /*
+         * No puedo estar usando la memoria !!!
+         */       
+        vTaskSuspend( xHandle_tkSys );
+        vTaskSuspend( xHandle_tkWan );
+        vTaskSuspend( xHandle_tkWanRX );
+        SYSTEM_ENTER_CRITICAL();
+        task_running &= ~SYS_WDG_gc;
+        task_running &= ~WAN_WDG_gc;
+        task_running &= ~WANRX_WDG_gc;
+        SYSTEM_EXIT_CRITICAL();
+                
+        if ( !strcmp_P( strupr(argv[2]), PSTR("SOFT"))) {
+			FS_format(false );
+		} else if ( !strcmp_P( strupr(argv[2]), PSTR("HARD"))) {
+			FS_format(true);
+		} else {
+			xprintf_P( PSTR("ERROR\r\nUSO: reset memory {hard|soft}\r\n"));
+			return;
+		}
+    }
+
     xprintf("Reset..\r\n");
     reset();
 }
@@ -545,9 +636,13 @@ static void cmdStatusFunction(void)
     xprintf_P(PSTR(" timerdial=%d\r\n"), systemConf.ptr_base_conf->timerdial);
     xprintf_P(PSTR(" timerpoll=%d\r\n"), systemConf.ptr_base_conf->timerpoll);
     u_print_pwr_configuration();
-    
+    u_print_tasks_running();
+            
     ainputs_print_configuration();
     counter_print_configuration();
+    consigna_print_configuration();
+    
+    WAN_print_configuration();
     
     xprintf_P(PSTR(" Frame: "));
     u_xprint_dr( get_dataRcd_ptr());
@@ -619,6 +714,12 @@ static void cmdConfigFunction(void)
     
     FRTOS_CMD_makeArgv();
 
+    // CONSIGNAS
+    // consigna enable hhmm_diurna hhmm_nocturna
+    if (!strcmp_P( strupr(argv[1]), PSTR("CONSIGNA"))) { 
+        consigna_config( argv[2], argv[3], argv[4] ) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+    }
 	// SAVE
 	// config save
 	if (!strcmp_P( strupr(argv[1]), PSTR("SAVE"))) {       
@@ -698,6 +799,12 @@ static void cmdConfigFunction(void)
 		return;
 	}
 
+    // DEBUG
+    // config debug (ainput, counter, comms) (true,false)
+    if (!strcmp_P( strupr(argv[1]), PSTR("DEBUG")) ) {
+        u_config_debug( argv[2], argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+    }
     // CMD NOT FOUND
 	xprintf("ERROR\r\nCMD NOT DEFINED\r\n\0");
 	return;

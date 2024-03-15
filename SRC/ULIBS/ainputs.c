@@ -8,7 +8,7 @@
 
 static int8_t sensores_prendidos = 0;
 
-static bool f_debug_ainputs;
+static bool f_debug_ainputs = false;
 
 // Semafor para acceder a medir los canales ( ainputs y pilotos )
 SemaphoreHandle_t sem_AINPUTS;
@@ -381,13 +381,17 @@ bool ainputs_read_debug(void)
 uint8_t ainputs_hash( void )
 {
     
-uint8_t hash_buffer[32];
+uint8_t hash_buffer[48];
 uint8_t i,j;
 uint8_t hash = 0;
 char *p;
 
+//    globaluxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+//    xprintf_P(PSTR("STACK ainputs_0 = %d\r\n"), globaluxHighWaterMark );
+    
     // Calculo el hash de la configuracion de las ainputs
     for(i=0; i<NRO_ANALOG_CHANNELS; i++) {
+        
         memset(hash_buffer, '\0', sizeof(hash_buffer));
         j = 0;
         if ( ainputs_conf.channel[i].enabled ) {
@@ -399,12 +403,24 @@ char *p;
         j += sprintf_P( (char *)&hash_buffer[j], PSTR("%d,%d,"), ainputs_conf.channel[i].imin, ainputs_conf.channel[i].imax );
         j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.02f,%.02f,"), ainputs_conf.channel[i].mmin, ainputs_conf.channel[i].mmax );
         j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.02f]"), ainputs_conf.channel[i].offset);    
+        
+//        xprintf_P(PSTR("HASH_AIN:<%s>\r\n"), hash_buffer);
+        
+//        globaluxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+//        xprintf_P(PSTR("STACK ainputs_%d = %d, j=%d\r\n"), i, globaluxHighWaterMark,j );
+    
         p = (char *)hash_buffer;
+        
         while (*p != '\0') {
             hash = u_hash(hash, *p++);
         }
+        
+//       globaluxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+//       xprintf_P(PSTR("STACK ainputs_P = %d, hash=%d\r\n"), globaluxHighWaterMark, hash );
+        
         // xprintf_P(PSTR("HASH_AIN:<%s>, hash=%d\r\n"), hash_buffer, hash );
     }
+    
     return(hash);
     
 }

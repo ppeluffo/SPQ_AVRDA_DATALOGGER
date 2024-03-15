@@ -15,7 +15,8 @@ extern "C" {
 
 #include "FreeRTOS.h"
 #include "task.h"
-
+#include "timers.h"
+    
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <stdbool.h>
@@ -36,10 +37,10 @@ extern "C" {
 #define CNT0_PIN_bp	PIN4_bp
 
 // Los CNTx son inputs
-#define CNT0_CONFIG()    ( CNT0_PORT.DIR &= ~CNT0_PIN_bm )
+#define CNT0_CONFIG()               ( CNT0_PORT.DIR &= ~CNT0_PIN_bm )
 
-#define PF4_INTERRUPT       ( PORTF.INTFLAGS & PIN4_bm )
-#define PF4_CLEAR_INTERRUPT_FLAG ( PORTF.INTFLAGS &= PIN4_bm )
+#define PF4_INTERRUPT               ( PORTF.INTFLAGS & PIN4_bm )
+#define PF4_CLEAR_INTERRUPT_FLAG    ( PORTF.INTFLAGS &= PIN4_bm )
     
 #define CNT_PARAMNAME_LENGTH	12
     
@@ -56,9 +57,11 @@ typedef struct {
 counter_conf_t counter_conf;
 
 typedef struct {
+    
+    uint8_t fsm_ticks_count;
     uint16_t pulsos;
     float caudal;
-    uint32_t ticks_count;
+    uint32_t start_pulse;
     
 } counter_value_t;
 
@@ -74,7 +77,7 @@ bool counter_read_debug(void);
 
 void counter_clear(void);
 uint8_t counter_read_pin(void);
-uint16_t counter_read();
+counter_value_t counter_read();
 uint8_t counter_hash( void );
 
 

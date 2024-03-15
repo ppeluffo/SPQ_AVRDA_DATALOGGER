@@ -37,7 +37,7 @@ typedef enum {
 	fdTERM = 0,  
     fdRS485,
     fdRS485_MODBUS,
-    fdXCOMMS,
+    fdWAN,
     fdNVM,
     fdI2C0,
     fdI2C1,

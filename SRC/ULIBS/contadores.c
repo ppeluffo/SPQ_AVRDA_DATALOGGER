@@ -2,13 +2,17 @@
 #include "contadores.h"
 #include <avr/interrupt.h>
 
-static bool f_debug_counters;
+static bool f_debug_counters = false;
 
+StaticTimer_t counter_xTimerBuffer;
+TimerHandle_t counter_xTimer;
+
+static void pv_counter_TimerCallback( TimerHandle_t xTimer );
 //------------------------------------------------------------------------------
 void counter_init_outofrtos( void )
 {
     CNT0_CONFIG();
-    
+          
     // Configuro los pines para interrumpir
     // Habilito a interrumpir, pullup, flanco de bajada.
     cli();
@@ -18,8 +22,16 @@ void counter_init_outofrtos( void )
 // ----------------------------------------------------------------------------- 
 void counter_init( void )
 {
+    counter_xTimer = xTimerCreateStatic ("CNT0",
+		pdMS_TO_TICKS( 10 ),    // 10 ms
+		pdTRUE,                 // Continuo.
+		( void * ) 0,
+		pv_counter_TimerCallback,
+		&counter_xTimerBuffer
+	);
+        
     counter_clear();
-    contador.ticks_count = xTaskGetTickCountFromISR();
+    contador.fsm_ticks_count = 0;
 }
 // ----------------------------------------------------------------------------- 
 void counter_config_defaults( void )
@@ -132,9 +144,9 @@ uint8_t counter_read_pin(void)
     return ( ( CNT0_PORT.IN & CNT0_PIN_bm ) >> CNT0_PIN) ;
 }
 // -----------------------------------------------------------------------------
-uint16_t counter_read(void)
+counter_value_t counter_read(void)
 {
-    return(contador.pulsos);
+    return(contador);
 }
 // -----------------------------------------------------------------------------
 void counter_clear(void)
@@ -162,20 +174,21 @@ char *p;
 
 
     memset(hash_buffer, '\0', sizeof(hash_buffer));
-    j = 0;
+    j = sprintf_P( (char *)&hash_buffer, PSTR("[C0:") );
+    
     if ( counter_conf.enabled ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[C%0:TRUE,") );
+        j += sprintf_P( (char *)&hash_buffer[j], PSTR("TRUE,") );
     } else {
-       j += sprintf_P( (char *)&hash_buffer[j], PSTR("[C%0:FALSE,") );
+       j += sprintf_P( (char *)&hash_buffer[j], PSTR("FALSE,") );
     }
         
     j += sprintf_P( (char *)&hash_buffer[j], PSTR("%s,"), counter_conf.name );
     j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.03f,"), counter_conf.magpp );
         
     if ( counter_conf.modo_medida == 0 ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("CAUDAL"));
+        j += sprintf_P( (char *)&hash_buffer[j], PSTR("CAUDAL]"));
     } else {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("PULSOS"));
+        j += sprintf_P( (char *)&hash_buffer[j], PSTR("PULSOS]"));
     }
 
     p = (char *)hash_buffer;
@@ -183,7 +196,7 @@ char *p;
         hash = u_hash(hash, *p++);
     }
         
-    //xprintf_P(PSTR("HASH_CNT:<%s>, hash=%d\r\n"),hash_buffer, hash );
+    //xprintf_P(PSTR("HASH_CNT:<%s>, hash=%d\r\n"), hash_buffer, hash );
  
     return(hash);
     
@@ -192,32 +205,76 @@ char *p;
 ISR(PORTF_PORT_vect)
 {
 
-float duracion_pulso;
-uint32_t ticks_now;
-
     // Borro las flags.
     if (PF4_INTERRUPT ) {
         
-        contador.pulsos++;
-        
-        // Calculo el caudal
-        ticks_now = xTaskGetTickCountFromISR();
-        duracion_pulso =  (float)(ticks_now - contador.ticks_count);    // Duracion en ticks
-        duracion_pulso /= 3600000;
-        duracion_pulso /= configTICK_RATE_HZ;                           // Duracion en hs.
-        contador.ticks_count = ticks_now;
-        if ( duracion_pulso > 0 ) {
-            contador.caudal = counter_conf.magpp / duracion_pulso;      // En mt3/h 
-        } else {
-            contador.caudal = 0.0;
+        if ( contador.fsm_ticks_count == 0) {
+            // Arranca el timer que va a hacer el debounced
+            xTimerStart(counter_xTimer, 10);   
         }
-        
+            
+        // La interrupcion la vuelve a habilitar el timer.
         PF4_CLEAR_INTERRUPT_FLAG;
-   
     }
 
 }
 //------------------------------------------------------------------------------
+static void pv_counter_TimerCallback( TimerHandle_t xTimer )
+{
+	/*
+     *  Funcion de callback de la entrada de contador A.
+     *  Controla el pulse_width y el debounce.
+     *  Lo arranca la llegada de la interrupcion.
+     *  El primer tick es a los 10 ms.
+     *  Controla si el nivel es alto aún. 
+     *  Si lo es, contabiliza un pulso.
+     *  Espera 50ms ( cuenta hasta 5) que es el pulso minimo y rearma el sistema
+     *  de interrupciones.
+     *  
+     */
+    
+float duracion_pulso;
+uint32_t ticks_now;
+
+    contador.fsm_ticks_count++;
+    
+    // Pulso valido ( pulse width minimo )
+    if (contador.fsm_ticks_count == 1) {
+        if ( counter_read_pin() == 0 ) {
+            // El pulso tiene el ancho minimo de 10 ms.
+            contador.pulsos++;
+            
+            ticks_now = xTaskGetTickCountFromISR();
+            duracion_pulso =  (float)(ticks_now - contador.start_pulse);    // Duracion en ticks
+            duracion_pulso /= configTICK_RATE_HZ;                           // Duracion en secs.
+            duracion_pulso /= 3600;                                         // Duracion en horas
+            // Guardo el inicio del pulso para medir el caudal
+            contador.start_pulse = ticks_now;
+        
+            if ( duracion_pulso > 0 ) {
+                contador.caudal = counter_conf.magpp / duracion_pulso;      // En mt3/h 
+            } else {
+                contador.caudal = 0.0;
+            }
+            //
+            contador.caudal = duracion_pulso; 
+            
+            if (f_debug_counters) {
+                xprintf_P(PSTR("COUNTER: PULSOS=%d, CAUDAL=%0.3f\r\n"), contador.pulsos, contador.caudal );
+            }
+        }
+        return;
+    }
+    
+    // Debounced: Pulso valido
+    if (contador.fsm_ticks_count == 10) {
+        // Apago el timer.
+         xTimerStop(counter_xTimer, 10);
+        // Habilito la interrupcion
+        contador.fsm_ticks_count = 0;
+        return;
+    }
  
+}
 
        

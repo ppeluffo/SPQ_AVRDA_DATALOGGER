@@ -16,8 +16,9 @@
 int8_t ADC_init()
 {
 
-	ADC0.CTRLB = ADC_SAMPNUM_NONE_gc; /* No accumulation */
-
+	//ADC0.CTRLB = ADC_SAMPNUM_NONE_gc; /* No accumulation */
+    ADC0.CTRLB = ADC_SAMPNUM_ACC8_gc; // 16 cuentas
+        
 	ADC0.CTRLC = ADC_PRESC_DIV32_gc; /* CLK_PER divided by 2 */
 
 	//ADC0.CTRLD = 0x0 << ADC_SAMPDLY_gp /* Sampling Delay Selection: 0x0 */
@@ -193,14 +194,14 @@ uint16_t ADC_read_sens3v3(void)
     
 uint16_t adc_acc;
 
-    ADC_enable();
-    SET_EN_SENS3V3();
-    vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
+    //SET_EN_SENS3V3();
+    //vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
+
+    //ADC_enable();
+    adc_acc = ADC_get_conversion(ADC_MUXPOS_AIN12_gc); /* ADC input pin 12 */
+    //ADC_disable();
     
-    ADC0.MUXPOS = ADC_MUXPOS_AIN12_gc; /* ADC input pin 12 */
-    adc_acc = ADC_get_conversion(ADC_MUXPOS_AIN12_gc);
-    CLEAR_EN_SENS3V3();
-    ADC_disable();
+    //CLEAR_EN_SENS3V3();
     return( adc_acc);    
 }
 //------------------------------------------------------------------------------
@@ -209,14 +210,14 @@ uint16_t ADC_read_sens12v(void)
 
 uint16_t adc_acc;
 
-    ADC_enable();
-    SET_EN_SENS12V();
-    vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
     
-    ADC0.MUXPOS = ADC_MUXPOS_AIN11_gc; /* ADC input pin 11 */
+    //SET_EN_SENS12V();
+    //vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
+    //ADC_enable();
+    //ADC0.MUXPOS = ADC_MUXPOS_AIN11_gc; /* ADC input pin 11 */
     adc_acc = ADC_get_conversion(ADC_MUXPOS_AIN11_gc);
-    CLEAR_EN_SENS12V();
-    ADC_disable();
+    //ADC_disable();
+    //CLEAR_EN_SENS12V();
     return( adc_acc);
     
 }

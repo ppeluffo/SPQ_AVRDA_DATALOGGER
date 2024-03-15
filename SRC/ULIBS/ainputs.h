@@ -53,6 +53,8 @@ typedef struct {
 
 ainputs_conf_t ainputs_conf;
 
+//uint16_t globaluxHighWaterMark;
+
 void ainputs_init_outofrtos( void );
 void ainputs_init(void);
 void ainputs_awake(void);

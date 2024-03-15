@@ -75,10 +75,10 @@ void reset(void)
                                            
 }
 //------------------------------------------------------------------------------
-void kick_wdt( uint8_t bit_pos)
+void u_kick_wdt( uint8_t wdg_gc)
 {
     // Pone el bit correspondiente en 0.
-    sys_watchdog &= ~ (1 << bit_pos);
+    sys_watchdog &= ~wdg_gc;
     
 }
 //------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ void u_config_default(void)
     
     ainputs_config_defaults();
     counter_config_defaults();
-
+    consigna_config_defaults();
     
 }
 //------------------------------------------------------------------------------
@@ -117,6 +117,7 @@ struct {
     base_conf_t base_conf;
 	ainputs_conf_t ainputs_conf;
     counter_conf_t counter_conf;
+    consigna_conf_t consigna_conf;
     // El checksum SIEMPRE debe ser el ultimo byte !!!!!
     uint8_t checksum;
 } memConfBuffer;
@@ -125,6 +126,7 @@ struct {
     memcpy( &memConfBuffer.base_conf, systemConf.ptr_base_conf, sizeof(base_conf));
     memcpy( &memConfBuffer.ainputs_conf, systemConf.ptr_ainputs_conf, sizeof(ainputs_conf));
     memcpy( &memConfBuffer.counter_conf, systemConf.ptr_counter_conf, sizeof(counter_conf));
+    memcpy( &memConfBuffer.consigna_conf, systemConf.ptr_consigna_conf, sizeof(consigna_conf));
 
     cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     memConfBuffer.checksum = cks;
@@ -148,6 +150,7 @@ struct {
     base_conf_t base_conf;
 	ainputs_conf_t ainputs_conf;
     counter_conf_t counter_conf;
+    consigna_conf_t consigna_conf;
     // El checksum SIEMPRE debe ser el ultimo byte !!!!!
     uint8_t checksum;
 } memConfBuffer;
@@ -167,6 +170,7 @@ struct {
     memcpy( systemConf.ptr_base_conf, &memConfBuffer.base_conf, sizeof(base_conf));
     memcpy( systemConf.ptr_ainputs_conf, &memConfBuffer.ainputs_conf, sizeof(ainputs_conf));
     memcpy( systemConf.ptr_counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf));
+    memcpy( systemConf.ptr_consigna_conf, &memConfBuffer.consigna_conf, sizeof(consigna_conf));
     
     return(true);
 }
@@ -306,13 +310,28 @@ float u_read_bat3v3(bool debug)
 
 uint16_t adc = 0;
 float bat3v3 = 0.0;
-    
+uint8_t i;
+
+    /*
+     Como acumulo en el ADC 8 samples, el resultado debo dividirlo /8
+     */
+
     SET_EN_SENS3V3();
     vTaskDelay( 1000 / portTICK_PERIOD_MS );
     SYSTEM_ENTER_CRITICAL();
-    adc = ADC_read_sens3v3();
+    
+    for (i=0; i < BAT_SAMPLES; i++) {
+        adc = ADC_read_sens3v3();
+        bat3v3 += 1.0 * adc;
+        vTaskDelay( 10 / portTICK_PERIOD_MS );
+    }
+    bat3v3 /= 8;
+    bat3v3 /= BAT_SAMPLES;
+    
     SYSTEM_EXIT_CRITICAL();
-    bat3v3 = 1.0 * adc * BAT3V3_FACTOR;
+    bat3v3 *= BAT3V3_FACTOR;
+    adc /= 8;
+            
     CLEAR_EN_SENS3V3();
     if(debug) {
         xprintf_P(PSTR("BAT3v3: adc=%d, bat3v3=%0.2f\r\n"), adc, bat3v3);
@@ -324,13 +343,29 @@ float u_read_bat12v(bool debug)
 {
 uint16_t adc = 0;
 float bat12v = 0.0;
-    
+uint8_t i;
+
+    /*
+     Como acumulo en el ADC 8 samples, el resultado debo dividirlo /8
+     */
+
     SET_EN_SENS12V();
     vTaskDelay( 1000 / portTICK_PERIOD_MS );
     SYSTEM_ENTER_CRITICAL();
-    adc = ADC_read_sens12v();
+    
+    for (i=0; i < BAT_SAMPLES; i++) {
+        adc = ADC_read_sens12v();
+        bat12v += 1.0 * adc;
+        vTaskDelay( 10 / portTICK_PERIOD_MS );
+    }
+    bat12v /= 8;
+    bat12v /= BAT_SAMPLES;
+    
     SYSTEM_EXIT_CRITICAL();
-    bat12v = 1.0 * adc * BAT12V_FACTOR;
+    // Convierto a voltaje
+    bat12v *= BAT12V_FACTOR;
+    adc /= 8;
+    
     CLEAR_EN_SENS12V();
     if(debug) {
         xprintf_P(PSTR("BAT12v: adc=%d, bat12v=%0.2f\r\n"), adc, bat12v);
@@ -349,6 +384,7 @@ uint8_t channel;
 float mag;
 uint16_t raw;
 bool retS = false;
+counter_value_t cnt;
 
     // Canales analogicos:
     ainputs_prender_sensores();
@@ -356,6 +392,7 @@ bool retS = false;
     for ( channel = 0; channel < NRO_ANALOG_CHANNELS; channel++) {
         mag = 0.0;
         raw = 0;
+        // Solo leo los canales configurados.
         if ( systemConf.ptr_ainputs_conf->channel[channel].enabled ) {
             ainputs_read_channel ( channel, &mag, &raw );
         }
@@ -365,12 +402,15 @@ bool retS = false;
     ainputs_apagar_sensores();
     
     // Contador
-    mag = 0;
+    cnt = counter_read();
+    counter_clear();
     if ( systemConf.ptr_counter_conf->enabled ) {
-        mag = counter_read();
-        counter_clear();
+        if ( systemConf.ptr_counter_conf->modo_medida == PULSOS ) {
+            dataRcd->contador = (float) cnt.pulsos;
+        } else {
+            dataRcd->contador = cnt.caudal;
+        }      
     }
-    dataRcd->contador = mag;
     
     // Bateria
     dataRcd->bt3v3 = u_read_bat3v3(false);
@@ -445,5 +485,236 @@ void SYSTEM_ENTER_CRITICAL(void)
 void SYSTEM_EXIT_CRITICAL(void)
 {
     xSemaphoreGive( sem_SYSVars );
+}
+//------------------------------------------------------------------------------
+void u_data_resync_clock( char *str_time, bool force_adjust)
+{
+	/*
+	 * Ajusta el clock interno de acuerdo al valor de rtc_s
+     * Si force_adjust es TRUE siempre lo ajusta.
+     * Si es FALSE, solo lo ajusta si la diferencia con la hora actual son mas
+     * de 90 segundos
+     * 
+	 * Bug 01: 2021-12-14:
+	 * El ajuste no considera los segundos entonces si el timerpoll es c/15s, cada 15s
+	 * se reajusta y cambia la hora del datalogger.
+	 * Modifico para que el reajuste se haga si hay una diferencia de mas de 90s entre
+	 * el reloj local y el del server
+	 */
+
+
+float diff_seconds;
+RtcTimeType_t rtc_l, rtc_wan;
+int8_t xBytes = 0;
+   
+    // Convierto el string YYMMDDHHMM a RTC.
+    //xprintf_P(PSTR("DATA: DEBUG CLOCK2\r\n") );
+    memset( &rtc_wan, '\0', sizeof(rtc_wan) );        
+    RTC_str2rtc( str_time, &rtc_wan);
+    //xprintf_P(PSTR("DATA: DEBUG CLOCK3\r\n") );
+            
+            
+	if ( force_adjust ) {
+		// Fuerzo el ajuste.( al comienzo )
+		xBytes = RTC_write_dtime(&rtc_wan);		// Grabo el RTC
+		if ( xBytes == -1 ) {
+			xprintf_P(PSTR("ERROR: CLOCK: I2C:RTC:pv_process_server_clock\r\n"));
+		} else {
+			xprintf_P( PSTR("CLOCK: Update rtc.\r\n") );
+		}
+		return;
+	}
+
+	// Solo ajusto si la diferencia es mayor de 90s
+	// Veo la diferencia de segundos entre ambos.
+	// Asumo yy,mm,dd iguales
+	// Leo la hora actual del datalogger
+	RTC_read_dtime( &rtc_l);
+	diff_seconds = abs( rtc_l.hour * 3600 + rtc_l.min * 60 + rtc_l.sec - ( rtc_wan.hour * 3600 + rtc_wan.min * 60 + rtc_wan.sec));
+	//xprintf_P( PSTR("COMMS: rtc diff=%.01f\r\n"), diff_seconds );
+
+	if ( diff_seconds > 90 ) {
+		// Ajusto
+		xBytes = RTC_write_dtime(&rtc_wan);		// Grabo el RTC
+		if ( xBytes == -1 ) {
+			xprintf_P(PSTR("ERROR: CLOCK: I2C:RTC:pv_process_server_clock\r\n"));
+		} else {
+			xprintf_P( PSTR("CLOCK: Update rtc\r\n") );
+		}
+		return;
+	}
+}
+//------------------------------------------------------------------------------
+void u_reset_memory_remote(void)
+{
+    /*
+     * Desde el servidor podemos mandar resetear la memoria cuando detectamos
+     * problemas como fecha/hora en 0 o valores incorrectos.
+     * Se debe mandar 'RESMEM'
+     * 
+     * Debemos primero suspender las tareas que pueden llegar a usar la memoria
+     * para no interferir en ella.
+     */
+          
+    vTaskSuspend( xHandle_tkSys );
+    vTaskSuspend( xHandle_tkWanRX );
+    vTaskSuspend( xHandle_tkWan );
+        
+    //FS_format(true);
+    
+    xprintf("Reset..\r\n");
+    reset();
+    
+}
+//------------------------------------------------------------------------------
+uint8_t u_confbase_hash(void)
+{
+   
+uint8_t hash_buffer[32];
+uint8_t hash = 0;
+char *p;
+
+    // Calculo el hash de la configuracion base
+    memset(hash_buffer, '\0', sizeof(hash_buffer));
+    sprintf_P( (char *)&hash_buffer, PSTR("[TIMERPOLL:%03d]"), systemConf.ptr_base_conf->timerpoll );
+    p = (char *)hash_buffer;
+    while (*p != '\0') {
+		hash = u_hash(hash, *p++);
+	}
+    //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
+    //
+    memset(hash_buffer, '\0', sizeof(hash_buffer));
+    sprintf_P( (char *)&hash_buffer, PSTR("[TIMERDIAL:%03d]"), systemConf.ptr_base_conf->timerdial );
+    p = (char *)hash_buffer;
+    while (*p != '\0') {
+		hash = u_hash(hash, *p++);
+	}
+    //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );    
+    //
+    memset(hash_buffer, '\0', sizeof(hash_buffer));
+    sprintf_P( (char *)&hash_buffer, PSTR("[PWRMODO:%d]"), systemConf.ptr_base_conf->pwr_modo );
+    p = (char *)hash_buffer;
+    while (*p != '\0') {
+		hash = u_hash(hash, *p++);
+	}
+    //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
+    //
+    memset(hash_buffer, '\0', sizeof(hash_buffer));
+    sprintf_P( (char *)&hash_buffer, PSTR("[PWRON:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_on );
+    p = (char *)hash_buffer;
+    while (*p != '\0') {
+		hash = u_hash(hash, *p++);
+	}
+    //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
+    //
+    memset(hash_buffer, '\0', sizeof(hash_buffer));
+    sprintf_P( (char *)&hash_buffer, PSTR("[PWROFF:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_off );
+    p = (char *)hash_buffer;
+    while (*p != '\0') {
+		hash = u_hash(hash, *p++);
+	}
+    //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
+    //  
+    return(hash);
+}
+//------------------------------------------------------------------------------
+bool u_config_debug( char *tipo, char *valor)
+{
+    /*
+     * Configura las flags de debug para ayudar a visualizar los problemas
+     */
+    
+    if (!strcmp_P( strupr(tipo), PSTR("NONE")) ) {
+        ainputs_config_debug(false);
+        counter_config_debug(false);
+        return(true); 
+    }
+   
+    if (!strcmp_P( strupr(tipo), PSTR("AINPUT")) ) {
+        if (!strcmp_P( strupr(valor), PSTR("TRUE")) ) {
+            ainputs_config_debug(true);
+            return(true);
+        }
+        if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
+            ainputs_config_debug(false);
+            return(true);
+        }
+    }
+
+    if (!strcmp_P( strupr(tipo), PSTR("COUNTER")) ) {
+        if (!strcmp_P( strupr(valor), PSTR("TRUE")) ) {
+            counter_config_debug(true);
+            return(true);
+        }
+        if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
+            counter_config_debug(false);
+            return(true);
+        }
+    }
+       
+    return(false);
+    
+}
+//------------------------------------------------------------------------------
+void u_print_tasks_running(void)
+{
+    xprintf_P(PSTR(" watchdogs: (0x%02x)\r\n"), sys_watchdog);
+    xprintf_P(PSTR(" task running: (0x%02x)"), task_running);
+    
+    if ( (task_running & CMD_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" cmd"));
+    }
+    
+    if ( (task_running & SYS_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" sys"));
+    }
+    
+    if ( (task_running & WAN_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" wan"));
+    }
+    
+    if ( (task_running & WANRX_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" wanrx"));
+    }
+    
+    xprintf_P(PSTR("\r\n"));
+    
+}
+//------------------------------------------------------------------------------
+uint16_t u_hhmm_to_mins(uint16_t hhmm)
+{
+    /*
+     * Convierte una hora (hhmm) en minutos (0..1440)
+     */
+    
+uint16_t hh,mm, mins;
+
+    hh = (uint16_t) (hhmm / 100);
+    mm = hhmm - hh * 100;
+    mins = hh*60 + mm;
+    return (mins);
+    
+}
+//------------------------------------------------------------------------------
+void u_check_stacks_usage(void)
+{
+    /*
+     * Mide el stack de todas las tareas y lo informa
+     */
+    
+uint16_t uxHighWaterMark;
+
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkCmd );
+    xprintf_P(PSTR("tkCMD stack = %d\r\n"), uxHighWaterMark );
+
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkSys );
+    xprintf_P(PSTR("tkSYS stack = %d\r\n"), uxHighWaterMark );
+    
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkWanRX );
+    xprintf_P(PSTR("tkWANrx stack = %d\r\n"), uxHighWaterMark );
+    
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkWan );
+    xprintf_P(PSTR("tkWAN stack = %d\r\n"), uxHighWaterMark );
+    
 }
 //------------------------------------------------------------------------------
