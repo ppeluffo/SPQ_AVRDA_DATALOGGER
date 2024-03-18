@@ -100,6 +100,8 @@ void u_config_default(void)
     ainputs_config_defaults();
     counter_config_defaults();
     consigna_config_defaults();
+    modbus_config_defaults();
+    piloto_config_defaults();
     
 }
 //------------------------------------------------------------------------------
@@ -113,11 +115,14 @@ bool u_save_config_in_NVM(void)
    
 int8_t retVal;
 uint8_t cks;
+
 struct {
     base_conf_t base_conf;
 	ainputs_conf_t ainputs_conf;
     counter_conf_t counter_conf;
     consigna_conf_t consigna_conf;
+    modbus_conf_t modbus_conf;
+    piloto_conf_t piloto_conf;
     // El checksum SIEMPRE debe ser el ultimo byte !!!!!
     uint8_t checksum;
 } memConfBuffer;
@@ -127,9 +132,13 @@ struct {
     memcpy( &memConfBuffer.ainputs_conf, systemConf.ptr_ainputs_conf, sizeof(ainputs_conf));
     memcpy( &memConfBuffer.counter_conf, systemConf.ptr_counter_conf, sizeof(counter_conf));
     memcpy( &memConfBuffer.consigna_conf, systemConf.ptr_consigna_conf, sizeof(consigna_conf));
+    memcpy( &memConfBuffer.modbus_conf, systemConf.ptr_modbus_conf, sizeof(modbus_conf));
+    memcpy( &memConfBuffer.piloto_conf, systemConf.ptr_piloto_conf, sizeof(piloto_conf));
 
     cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     memConfBuffer.checksum = cks;
+
+    xprintf_P(PSTR("SAVE DEBUG: memblock size = %d\r\n"), sizeof(memConfBuffer));
     
     retVal = NVMEE_write( 0x00, (char *)&memConfBuffer, sizeof(memConfBuffer) );
     
@@ -151,6 +160,8 @@ struct {
 	ainputs_conf_t ainputs_conf;
     counter_conf_t counter_conf;
     consigna_conf_t consigna_conf;
+    modbus_conf_t modbus_conf;
+    piloto_conf_t piloto_conf;
     // El checksum SIEMPRE debe ser el ultimo byte !!!!!
     uint8_t checksum;
 } memConfBuffer;
@@ -161,7 +172,7 @@ struct {
     calc_cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     
     if ( calc_cks != rd_cks ) {
-		xprintf_P( PSTR("ERROR: Checksum systemVars failed: calc[0x%0x], read[0x%0x]\r\n"), calc_cks, rd_cks );
+		xprintf_P( PSTR("ERROR: Checksum systemConf failed: calc[0x%0x], read[0x%0x]\r\n"), calc_cks, rd_cks );
         
 		return(false);
 	}
@@ -171,7 +182,8 @@ struct {
     memcpy( systemConf.ptr_ainputs_conf, &memConfBuffer.ainputs_conf, sizeof(ainputs_conf));
     memcpy( systemConf.ptr_counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf));
     memcpy( systemConf.ptr_consigna_conf, &memConfBuffer.consigna_conf, sizeof(consigna_conf));
-    
+    memcpy( systemConf.ptr_modbus_conf, &memConfBuffer.modbus_conf, sizeof(modbus_conf));
+    memcpy( systemConf.ptr_piloto_conf, &memConfBuffer.piloto_conf, sizeof(piloto_conf));
     return(true);
 }
 //------------------------------------------------------------------------------
@@ -412,6 +424,9 @@ counter_value_t cnt;
         }      
     }
     
+    // Modbus 
+    modbus_read ( dataRcd->modbus );
+    
     // Bateria
     dataRcd->bt3v3 = u_read_bat3v3(false);
     dataRcd->bt12v = u_read_bat12v(false);
@@ -470,6 +485,13 @@ uint8_t i;
         }
     }
       
+    // Canales Modbus:
+    for ( i=0; i < NRO_MODBUS_CHANNELS; i++) {
+        if ( systemConf.ptr_modbus_conf->mbch[i].enabled ) {
+            xprintf_P( PSTR("%s=%0.2f;"), systemConf.ptr_modbus_conf->mbch[i].name, dr->modbus[i]);
+        }
+    }
+    
     // Bateria
     xprintf_P( PSTR("bt3v3=%0.2f;bt12v=%0.2f"), dr->bt3v3, dr->bt12v);
     
@@ -622,6 +644,7 @@ bool u_config_debug( char *tipo, char *valor)
 {
     /*
      * Configura las flags de debug para ayudar a visualizar los problemas
+     * ainput,counter,modbus,piloto,wan
      */
     
     if (!strcmp_P( strupr(tipo), PSTR("NONE")) ) {
@@ -648,6 +671,39 @@ bool u_config_debug( char *tipo, char *valor)
         }
         if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
             counter_config_debug(false);
+            return(true);
+        }
+    }
+    
+    if (!strcmp_P( strupr(tipo), PSTR("MODBUS")) ) {
+        if (!strcmp_P( strupr(valor), PSTR("TRUE")) ) {
+            modbus_config_debug(true);
+            return(true);
+        }
+        if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
+            modbus_config_debug(false);
+            return(true);
+        }
+    }
+    
+    if (!strcmp_P( strupr(tipo), PSTR("PILOTO")) ) {
+        if (!strcmp_P( strupr(valor), PSTR("TRUE")) ) {
+            piloto_config_debug(true);
+            return(true);
+        }
+        if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
+            piloto_config_debug(false);
+            return(true);
+        }
+    }
+    
+    if (!strcmp_P( strupr(tipo), PSTR("WAN")) ) {
+        if (!strcmp_P( strupr(valor), PSTR("TRUE")) ) {
+            WAN_config_debug(true);
+            return(true);
+        }
+        if (!strcmp_P( strupr(valor), PSTR("FALSE")) ) {
+            WAN_config_debug(false);
             return(true);
         }
     }
@@ -715,6 +771,9 @@ uint16_t uxHighWaterMark;
     
     uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkWan );
     xprintf_P(PSTR("tkWAN stack = %d\r\n"), uxHighWaterMark );
+    
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkRS485RX );
+    xprintf_P(PSTR("tkRS485RX stack = %d\r\n"), uxHighWaterMark );
     
 }
 //------------------------------------------------------------------------------

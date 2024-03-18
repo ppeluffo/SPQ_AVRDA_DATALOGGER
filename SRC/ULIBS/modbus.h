@@ -18,6 +18,7 @@ extern "C" {
 #include "frtos-io.h"
 #include "stdint.h"
 #include "xprintf.h"
+#include "utils.h"
     
 #define MODBUS_PARAMNAME_LENGTH     12
 #define NRO_MODBUS_CHANNELS         5
@@ -88,7 +89,7 @@ typedef struct {
 } mbus_CONTROL_BLOCK_t;
 
 
-void modbus_init_outofrtos( SemaphoreHandle_t semph);
+void modbus_init_outofrtos(void);
 void modbus_init( int fd_modbus, int buffer_size, void (*f)(void), uint16_t (*g)(void), char *(*h)(void)  );
 
 void modbus_config_debug(bool debug );
@@ -118,10 +119,12 @@ void modbus_io( mbus_CONTROL_BLOCK_t *mbus_cb );
 void modbus_read( float modbus_values[] );
 float modbus_read_channel ( uint8_t ch );
 
-void modbus_test_genpoll(char *arg_ptr[16] );
 void modbus_print_value( mbus_CONTROL_BLOCK_t *mbus_cb );
 
-uint8_t modbus_hash( uint8_t f_hash(uint8_t seed, char ch ));
+uint8_t modbus_hash( void );
+
+bool MODBUS_test_genpoll(char *arg_ptr[16] );
+bool MODBUS_test_channel( uint8_t channel );
 
 #ifdef	__cplusplus
 }

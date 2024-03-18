@@ -142,6 +142,8 @@ int main(void) {
     FS_init();
     ainputs_init_outofrtos();
     counter_init_outofrtos();
+    modbus_init_outofrtos();
+    piloto_init_outofrtos();
     
     task_running = 0x00;
     sys_watchdog = 0x00;
@@ -152,7 +154,8 @@ int main(void) {
     xHandle_tkSys = xTaskCreateStatic( tkSys, "SYS", tkSys_STACK_SIZE, (void *)1, tkSys_TASK_PRIORITY, tkSys_Buffer, &tkSys_Buffer_Ptr );
     xHandle_tkWanRX = xTaskCreateStatic( tkWanRX, "WANRX", tkWanRX_STACK_SIZE, (void *)1, tkWanRX_TASK_PRIORITY, tkWanRX_Buffer, &tkWanRX_Buffer_Ptr );
     xHandle_tkWan = xTaskCreateStatic( tkWan, "WAN", tkWan_STACK_SIZE, (void *)1, tkWan_TASK_PRIORITY, tkWan_Buffer, &tkWan_Buffer_Ptr );
-     
+    xHandle_tkRS485RX = xTaskCreateStatic( tkRS485RX, "RS485", tkRS485RX_STACK_SIZE, (void *)1, tkRS485RX_TASK_PRIORITY, tkRS485RX_Buffer, &tkRS485RX_Buffer_Ptr );
+    
     /* Arranco el RTOS. */
 	vTaskStartScheduler();
   

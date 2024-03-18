@@ -57,7 +57,7 @@ void counter_print_configuration( void )
 
     xprintf_P(PSTR("Counter:\r\n"));
     xprintf_P(PSTR(" debug: "));
-    f_debug_counters ? xprintf_P(PSTR("true\r\n")) : xprintf_P(PSTR("false\r\n"));
+    f_debug_counters ? xprintf_P(PSTR("on\r\n")) : xprintf_P(PSTR("off\r\n"));
     
         
     if ( counter_conf.enabled ) {

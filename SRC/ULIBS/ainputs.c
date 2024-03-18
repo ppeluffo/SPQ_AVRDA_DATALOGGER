@@ -147,7 +147,7 @@ uint8_t i = 0;
 
     xprintf_P(PSTR("Ainputs:\r\n"));
     xprintf_P(PSTR(" debug: "));
-    f_debug_ainputs ? xprintf_P(PSTR("true\r\n")) : xprintf_P(PSTR("false\r\n"));
+    f_debug_ainputs ? xprintf_P(PSTR("on\r\n")) : xprintf_P(PSTR("off\r\n"));
 
 	for ( i = 0; i < NRO_ANALOG_CHANNELS; i++) {
         

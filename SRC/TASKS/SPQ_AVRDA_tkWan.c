@@ -12,7 +12,7 @@ lBuffer_s wan_rx_lbuffer;
 #define WAN_TX_BUFFER_SIZE 255
 char wan_tx_buffer[WAN_TX_BUFFER_SIZE];
 
-static bool f_debug_comms = true;
+static bool f_debug_comms = false;
 
 typedef enum { WAN_APAGADO=0, WAN_OFFLINE, WAN_ONLINE_CONFIG, WAN_ONLINE_DATA } wan_states_t;
 
@@ -46,8 +46,10 @@ static bool wan_process_frame_configCounters(void);
 static bool wan_process_rsp_configCounters(void);
 static bool wan_process_frame_configConsigna(void);
 static bool wan_process_rsp_configConsigna(void);
-//static bool wan_process_frame_configModbus(void);
-//static bool wan_process_rsp_configModbus(void);
+static bool wan_process_frame_configModbus(void);
+static bool wan_process_rsp_configModbus(void);
+static bool wan_process_frame_configPiloto(void);
+static bool wan_process_rsp_configPiloto(void);
 
 static bool wan_send_from_memory(void);
 static bool wan_process_frame_data(dataRcd_s *dr);
@@ -324,7 +326,9 @@ uint16_t i;
     
     wan_process_frame_configConsigna();
     
-//    wan_process_frame_configModbus();
+    wan_process_frame_configModbus();
+    
+    wan_process_frame_configPiloto();
     
     u_save_config_in_NVM(); 
  
@@ -1193,8 +1197,6 @@ exit_:
     return(retS);
 }
 //------------------------------------------------------------------------------
-#ifdef CONSIGNA
-
 static bool wan_process_frame_configModbus(void)
 {
      /*
@@ -1214,39 +1216,41 @@ uint8_t hash = 0;
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
-    
-    hash = modbus_hash( &systemConf.modbus_conf, u_hash );
-    
-    sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_MODBUS&HASH=0x%02X"), systemConf.dlgid, FW_TYPE, FW_REV, hash );
+    hash = modbus_hash();
+    sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_MODBUS&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
     // Proceso. Envio hasta 2 veces el frame y espero hasta 10s la respuesta
     tryes = 2;
     while (tryes-- > 0) {
         
-        wan_xmit_out(DEBUG_WAN);
-    
+        wan_xmit_out();
         // Espero respuesta chequeando cada 1s durante 10s.
         timeout = 10;
         while ( timeout-- > 0) {
             vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
-            if ( wan_check_response("CONFIG=ERROR")) {
-                xprintf_P(PSTR("WAN:: CONF_MODBUS ERROR: El servidor no reconoce al datalogger !!\r\n"));
-                retS = false;
-                goto exit_;
-            
-            } else if ( wan_check_response("CONF_MODBUS&CONFIG=OK")) {
-                wan_print_RXbuffer();
-                retS = true;
-                goto exit_;
+            if ( wan_check_response("</html>") ) {
                 
-            } else if ( wan_check_response( "CLASS=CONF_MODBUS" )) {
                 wan_print_RXbuffer();
-                wan_process_rsp_configModbus();
-                retS = true;
-                goto exit_;
-            } 
-            
+                
+                if ( wan_check_response("CONFIG=ERROR")) {
+                    xprintf_P(PSTR("WAN:: CONF_MODBUS ERROR: El servidor no reconoce al datalogger !!\r\n"));
+                    retS = false;
+                    goto exit_;
+                }
+                
+                if ( wan_check_response("CONF_MODBUS&CONFIG=OK")) {
+                    retS = true;
+                    goto exit_;
+                }
+                
+                if ( wan_check_response( "CLASS=CONF_MODBUS" )) {
+                    wan_process_rsp_configModbus();
+                    retS = true;
+                    goto exit_;
+                } 
+            }
         }
+
     }
  
     // Expiro el tiempo sin respuesta del server.
@@ -1294,11 +1298,17 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_lbuffer);
+    p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
        goto exit_;
+    }
+     
+    if  ( strstr( p, "CONFIG=ERROR") != NULL ) {
+        xprintf_P(PSTR("WAN:: CONF ERROR !!\r\n"));
+        retS = false;
+        goto exit_;    
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
@@ -1309,7 +1319,7 @@ bool retS = false;
         stringp = localStr;
         tk_enable = strsep(&stringp,delim);	 	// ENABLE
         tk_enable = strsep(&stringp,delim);	 	// TRUE/FALSE
-        modbus_config_enable( &systemConf.modbus_conf, tk_enable);
+        modbus_config_enable( tk_enable);
         xprintf_P( PSTR("WAN:: Reconfig MODBUS ENABLE to %s\r\n"), tk_enable );
     }
 
@@ -1321,10 +1331,9 @@ bool retS = false;
         stringp = localStr;
         tk_address = strsep(&stringp,delim);	 	// ENABLE
         tk_address = strsep(&stringp,delim);	 	// TRUE/FALSE
-        modbus_config_localaddr(&systemConf.modbus_conf, tk_address);
+        modbus_config_localaddr( tk_address);
         xprintf_P( PSTR("WAN:: Reconfig MODBUS LOCALADDR to %s\r\n"), tk_address );
     }
-    
     
     //
 	// MB? M0=TRUE,CAU0,2,2069,2,3,FLOAT,C1032,0
@@ -1350,7 +1359,7 @@ bool retS = false;
 			tk_codec = strsep(&stringp,delim);		//codec
 			tk_pow10 = strsep(&stringp,delim);		//pow10
                     
-			modbus_config_channel( &systemConf.modbus_conf, ch,
+			modbus_config_channel( ch,
                     tk_enable, 
                     tk_name, 
                     tk_sla, 
@@ -1369,9 +1378,7 @@ exit_:
                 
     return(retS);
 }
-#endif
 //------------------------------------------------------------------------------
-#ifdef PILOTO
 static bool wan_process_frame_configPiloto(void)
 {
     /*
@@ -1391,35 +1398,39 @@ uint8_t hash = 0;
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
-    hash = piloto_hash( u_hash );
-    sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_PILOTO&HASH=0x%02X"), systemConf.dlgid, FW_TYPE, FW_REV, hash );
+    hash = piloto_hash();
+    sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_PILOTO&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
     // Proceso. Envio hasta 2 veces el frame y espero hasta 10s la respuesta
     tryes = 2;
     while (tryes-- > 0) {
         
-        wan_xmit_out(DEBUG_WAN);
-    
+        wan_xmit_out();
         // Espero respuesta chequeando cada 1s durante 10s.
         timeout = 10;
         while ( timeout-- > 0) {
             vTaskDelay( ( TickType_t)( 1000 / portTICK_PERIOD_MS ) );
-            if ( wan_check_response("CONFIG=ERROR")) {
-                xprintf_P(PSTR("WAN:: CONF_PILOTO ERROR: El servidor no reconoce al datalogger !!\r\n"));
-                retS = false;
-                goto exit_;
-            
-            } else if ( wan_check_response("CONF_PILOTO&CONFIG=OK")) {
-                wan_print_RXbuffer();
-                retS = true;
-                goto exit_;
+            if ( wan_check_response("</html>") ) {
                 
-            } else if ( wan_check_response( "CLASS=CONF_PILOTO" )) {
                 wan_print_RXbuffer();
-                wan_process_rsp_configPiloto();
-                retS = true;
-                goto exit_;
-            } 
+                
+                if ( wan_check_response("CONFIG=ERROR")) {
+                    xprintf_P(PSTR("WAN:: CONF_PILOTO ERROR: El servidor no reconoce al datalogger !!\r\n"));
+                    retS = false;
+                    goto exit_;
+                }
+                
+                if ( wan_check_response("CONF_PILOTO&CONFIG=OK")) {
+                    retS = true;
+                    goto exit_;
+                }
+                
+                if ( wan_check_response( "CLASS=CONF_PILOTO" )) {
+                    wan_process_rsp_configPiloto();
+                    retS = true;
+                    goto exit_;
+                } 
+            }
         }
     }
  
@@ -1461,11 +1472,17 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_lbuffer);
+   p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
        goto exit_;
+    }
+     
+    if  ( strstr( p, "CONFIG=ERROR") != NULL ) {
+        xprintf_P(PSTR("WAN:: CONF ERROR !!\r\n"));
+        retS = false;
+        goto exit_;    
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
@@ -1531,7 +1548,6 @@ exit_:
                 
     return(retS);
 }
-#endif
 //------------------------------------------------------------------------------
 static bool wan_send_from_memory(void)
 {
@@ -1733,7 +1749,6 @@ char *p;
         }
     }
     
-#ifdef PILOTO
     if ( strstr( p, "PILOTO") != NULL ) {
         memset(localStr,'\0',sizeof(localStr));
         ts = strstr( p, "PILOTO=");
@@ -1741,9 +1756,8 @@ char *p;
         stringp = localStr;
         token = strsep(&stringp,delim);			// PILOTO
         token = strsep(&stringp,delim);			// 3.45
-        piloto_productor_handler_online(atof(token));
+        PILOTO_productor_handler_online(atof(token));
     }
-#endif
 
     if ( strstr( p, "RESMEM") != NULL ) {
         xprintf_P(PSTR("WAN:: RESET MEMORY order from Server !!\r\n"));
@@ -1756,6 +1770,19 @@ char *p;
         vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
         reset();
     }
+    
+        if ( strstr( p, "VOPEN") != NULL ) {
+        xprintf_P(PSTR("WAN:: OPEN VALVE from server !!\r\n"));
+        vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+        OPEN_VALVE();
+    }
+
+    if ( strstr( p, "VCLOSE") != NULL ) {
+        xprintf_P(PSTR("WAN:: CLOSE VALVE from server !!\r\n"));
+        vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+        CLOSE_VALVE();
+    }
+
     
     return(true);  
 }

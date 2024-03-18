@@ -18,14 +18,15 @@ extern "C" {
 #include "stdint.h"
 #include "stdlib.h"
 #include "string.h"
-
+#include "avr/pgmspace.h"
+    
 #include "xprintf.h"
-#include "drv8814.h"
-#include "steppers.h"
 #include "rtc79410.h"
 #include "ainputs.h"
+#include "utils.h"
     
 typedef enum { ST_PRODUCTOR = 0, ST_CONSUMIDOR } t_fsm_pilotos;
+typedef enum { DIR_FORWARD = 0, DIR_REVERSE } t_dir_pilotos;
 
 #define MAX_PILOTO_PSLOTS	12
 
@@ -44,19 +45,13 @@ typedef struct {
 	st_piloto_slot_t pltSlots[ MAX_PILOTO_PSLOTS ];
 } piloto_conf_t;
 
+piloto_conf_t piloto_conf;
 
-void piloto_init_outofrtos( SemaphoreHandle_t semph);
+bool PILOTO_productor_handler_cmdline(float presion);
+void PILOTO_productor_handler_online( float presion);
 
-void piloto_update_local_config( piloto_conf_t *piloto_system_conf);
-void piloto_read_local_config( piloto_conf_t *piloto_system_conf);
-
+void piloto_init_outofrtos(void);
 void piloto_init(void);
-bool piloto_configurado(void);
-void piloto_productor(void);
-void piloto_consumidor(void);
-void piloto_productor_handler_slots(void);
-void piloto_productor_handler_online( float presion );
-void piloto_productor_handler_cmdline( float presion);
 
 void piloto_config_defaults(void);
 bool piloto_config_enable(char *s_enable );
@@ -64,10 +59,10 @@ bool piloto_config_pwidth(char *s_pwidth );
 bool piloto_config_pulseXrev(char *s_pulseXrev );
 bool piloto_config_slot( uint8_t slot, char *s_ptime, char *s_presion );
 void piloto_print_configuration(void);
-bool piloto_cmd_set_presion(char *s_presion);
-
-uint8_t piloto_hash(uint8_t f_hash(uint8_t seed, char ch )  );
 void piloto_config_debug(bool debug );
+uint8_t piloto_hash( void );
+
+
 
 
 #ifdef	__cplusplus

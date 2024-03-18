@@ -62,7 +62,7 @@ extern "C" {
 //#include <avr/io.h>
 //#include <avr/builtins.h>
 #include <avr/wdt.h> 
-//#include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
 //#include <avr/fuse.h>
 #include "stdint.h"
 #include "stdbool.h"
@@ -87,9 +87,11 @@ extern "C" {
 #include "contadores.h"
 #include "toyi_valves.h"
 #include "consignas.h"
+#include "modbus.h"
+#include "piloto.h"
 
 #define FW_REV "0.0.1"
-#define FW_DATE "@ 20240315"
+#define FW_DATE "@ 20240317"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
 #define FW_TYPE "SPQ"
@@ -101,13 +103,15 @@ extern "C" {
 #define tkSys_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 #define tkWanRX_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 #define tkWan_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkRS485RX_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 #define tkCtlPresion_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 
 #define tkCtl_STACK_SIZE		384
-#define tkCmd_STACK_SIZE		384
+#define tkCmd_STACK_SIZE		512
 #define tkSys_STACK_SIZE		384
 #define tkWanRX_STACK_SIZE		384
 #define tkWan_STACK_SIZE		512
+#define tkRS485RX_STACK_SIZE	384
 #define tkCtlPresion_STACK_SIZE	384
 
 StaticTask_t tkCtl_Buffer_Ptr;
@@ -125,6 +129,9 @@ StackType_t tkWanRX_Buffer [tkWanRX_STACK_SIZE];
 StaticTask_t tkWan_Buffer_Ptr;
 StackType_t tkWan_Buffer [tkWan_STACK_SIZE];
 
+StaticTask_t tkRS485RX_Buffer_Ptr;
+StackType_t tkRS485RX_Buffer [tkRS485RX_STACK_SIZE];
+
 StaticTask_t tkCtlPresion_Buffer_Ptr;
 StackType_t tkCtlPresion_Buffer [tkCtlPresion_STACK_SIZE];
 
@@ -132,13 +139,14 @@ SemaphoreHandle_t sem_SYSVars;
 StaticSemaphore_t SYSVARS_xMutexBuffer;
 #define MSTOTAKESYSVARSSEMPH ((  TickType_t ) 10 )
 
-TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkWanRX, xHandle_tkWan, xHandle_tkCtlPresion;
+TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkWanRX, xHandle_tkWan, xHandle_tkRS485RX, xHandle_tkCtlPresion;
 
 void tkCtl(void * pvParameters);
 void tkCmd(void * pvParameters);
 void tkSys(void * pvParameters);
 void tkWanRX(void * pvParameters);
 void tkWan(void * pvParameters);
+void tkRS485RX(void * pvParameters);
 void tkCtlPresion(void *pvParameters);
 
 typedef enum { PWR_CONTINUO = 0, PWR_DISCRETO, PWR_MIXTO } pwr_modo_t;
@@ -152,14 +160,16 @@ typedef enum { PWR_CONTINUO = 0, PWR_DISCRETO, PWR_MIXTO } pwr_modo_t;
 
 bool starting_flag;
 
-// Estructura que tiene el valor de las medidas en el intervalo de poleo
+/* Estructura que tiene el valor de las medidas en el intervalo de poleo
 struct {   
     bool debug;
     float ainputs[NRO_ANALOG_CHANNELS];
     float counter;
+    float modbus[NRO_MODBUS_CHANNELS];
     float bt3v3;
     float bt12v;
 } systemVars;
+*/
 
 typedef struct {
     char dlgid[DLGID_LENGTH];
@@ -178,12 +188,15 @@ struct {
 	ainputs_conf_t *ptr_ainputs_conf;
     counter_conf_t *ptr_counter_conf;
     consigna_conf_t *ptr_consigna_conf;
+    modbus_conf_t *ptr_modbus_conf;
+    piloto_conf_t *ptr_piloto_conf;
 } systemConf;
 
 // Tipo que define la estrucutra de las medidas tomadas.
 typedef struct {
     float ainputs[NRO_ANALOG_CHANNELS];
     float contador;
+    float modbus[NRO_MODBUS_CHANNELS];
     float bt3v3;
     float bt12v;
     RtcTimeType_t  rtc;	
@@ -220,6 +233,8 @@ void u_check_stacks_usage(void);
 
 bool WAN_process_data_rcd( dataRcd_s *dataRcd);
 void WAN_print_configuration(void);
+void WAN_config_debug(bool debug );
+bool WAN_read_debug(void);
 
 // Mensajes entre tareas
 #define SIGNAL_FRAME_READY		0x01
@@ -237,10 +252,11 @@ uint8_t task_running;
 #define SYS_WDG_gc          (0x01 << 1)
 #define WAN_WDG_gc          (0x01 << 2)
 #define WANRX_WDG_gc        (0x01 << 3)
-#define CTLPRES_WDG_gc      (0x01 << 4)
+#define RS485RX_WDG_gc      (0x01 << 4)
+#define CTLPRES_WDG_gc      (0x01 << 5)
 
 // No habilitado PLT_WDG !!!
-#define WDG_bm 0x1F     // Pone todos los bits habilitados en 1
+#define WDG_bm 0x3F     // Pone todos los bits habilitados en 1
 #define WDG_INIT() ( sys_watchdog = WDG_bm )
 
 #endif	/* XC_HEADER_TEMPLATE_H */

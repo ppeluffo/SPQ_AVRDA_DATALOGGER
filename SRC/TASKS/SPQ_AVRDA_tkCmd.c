@@ -15,6 +15,7 @@ static void pv_snprintfP_OK(void );
 static void pv_snprintfP_ERR(void );
 
 static bool test_valve( char *action);
+static bool test_modbus(void);
 
 //uint16_t uxHighWaterMark;
 
@@ -83,6 +84,21 @@ static void cmdTestFunction(void)
 
     FRTOS_CMD_makeArgv();
 
+    // PILOTO
+    // test piloto {pres}
+	if ( !strcmp_P( strupr(argv[1]), PSTR("PILOTO"))  ) {
+		PILOTO_productor_handler_cmdline( atof(argv[2])) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}  
+    
+    // MODBUS
+	// modbus genpoll {type(F|I} sla fcode addr length }\r\n\0"));
+	//        chpoll {ch}\r\n\0"));
+	if ( !strcmp_P( strupr(argv[1]), PSTR("MODBUS")) ) {
+		test_modbus() ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+		return;
+	}  
+    
     // STACKS SIZE
     if (!strcmp_P( strupr(argv[1]), PSTR("STACKS"))  ) {
         u_check_stacks_usage();
@@ -442,11 +458,19 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  dlgid\r\n"));
         xprintf_P( PSTR("  default, save, load\r\n"));
         xprintf_P( PSTR("  timerpoll, timerdial\r\n"));
-        xprintf_P( PSTR("  debug {ainput,counter} {true/false}\r\n"));
+        xprintf_P( PSTR("  debug {ainput,counter,modbus,piloto,wan} {true/false}\r\n"));
         xprintf_P( PSTR("  pwrmodo {continuo,discreto,mixto}, pwron {hhmm}, pwroff {hhmm}\r\n"));
         xprintf_P( PSTR("  ainput {0..%d} enable{true/false} aname imin imax mmin mmax offset\r\n"),( NRO_ANALOG_CHANNELS - 1 ) );
         xprintf_P( PSTR("  counter enable{true/false} cname magPP modo(PULSO/CAUDAL)\r\n") );
+        xprintf_P( PSTR("  modbus enable{true/false}, localaddr {addr}\r\n"));
+        xprintf_P( PSTR("         channel {0..%d} enable name slaaddr regaddr nro_recds fcode type codec div_p10\r\n"), ( NRO_MODBUS_CHANNELS - 1));
+		xprintf_P( PSTR("         enable=>{True/False}\r\n"));
+        xprintf_P( PSTR("         fcode=>{3,6,16}\r\n"));
+		xprintf_P( PSTR("         type=>{i16,u16,i32,u32,float}\r\n"));
+		xprintf_P( PSTR("         codec=>{c0123,c1032,c3210,c2301}\r\n"));
         xprintf_P( PSTR("  consigna enable hhmm_diurna hhmm_nocturna\r\n") );
+        xprintf_P( PSTR("  piloto enable{true/false},ppr {nn},pwidth {nn}\r\n"));
+        xprintf_P( PSTR("         slot {idx} {hhmm} {pout}\r\n"));
         
     	// HELP RESET
 	} else if (!strcmp_P( strupr(argv[1]), PSTR("RESET"))) {
@@ -463,9 +487,12 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  sens3v3, sens12V, pwr_sensors {enable|disable}\r\n"));
         xprintf_P( PSTR("  pwr_cpres,pwr_sensext,pwr_qmbus {enable|disable}\r\n"));
         xprintf_P( PSTR("  rts {on|off}\r\n"));
+        xprintf_P( PSTR("  modbus genpoll {slaaddr,regaddr,nro_regs,fcode,type,codec}\r\n"));
+        xprintf_P( PSTR("         chpoll {ch}\r\n"));
         xprintf_P( PSTR("  lte (dcin,vcap,pwr,reset,reload} {on|off}\r\n"));
         xprintf_P( PSTR("      {on|off}\r\n"));
         xprintf_P( PSTR("      link\r\n"));
+        xprintf_P( PSTR("  piloto {pres}\r\n"));
         return;
         
     }  else {
@@ -641,7 +668,9 @@ static void cmdStatusFunction(void)
     ainputs_print_configuration();
     counter_print_configuration();
     consigna_print_configuration();
-    
+    modbus_print_configuration();
+    piloto_print_configuration();
+            
     WAN_print_configuration();
     
     xprintf_P(PSTR(" Frame: "));
@@ -714,6 +743,56 @@ static void cmdConfigFunction(void)
     
     FRTOS_CMD_makeArgv();
 
+    // PILOTO:
+    if ( strcmp_P ( strupr( argv[1]), PSTR("PILOTO")) == 0 ) {
+        // enable { true/false}
+        if ( strcmp_P ( strupr( argv[2]), PSTR("ENABLE")) == 0 ) {
+            piloto_config_enable(argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        }
+        // ppr {nn}
+        if ( strcmp_P ( strupr( argv[2]), PSTR("PPR")) == 0 ) {
+            piloto_config_pulseXrev(argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        } 
+        // pwidth {nn}
+        if ( strcmp_P ( strupr( argv[2]), PSTR("PWIDTH")) == 0 ) {
+            piloto_config_pwidth(argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        } 
+        // slot {idx} {hhmm} {pout}
+        if ( strcmp_P ( strupr( argv[2]), PSTR("SLOT")) == 0 ) {
+            piloto_config_slot( atoi(argv[3]), argv[4], argv[5]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        }         
+        pv_snprintfP_ERR();
+        return;
+    }
+    
+    // MODBUS:
+    // config modbus {0..%d} name slaaddr regaddr nro_recds fcode type codec div_p10
+    // config modbus channel {0..%d} enable name slaaddr regaddr nro_recds fcode type codec div_p10
+	if ( strcmp_P ( strupr( argv[1]), PSTR("MODBUS")) == 0 ) {
+        
+        //  enable{true/false}
+        if ( strcmp_P ( strupr( argv[2]), PSTR("ENABLE")) == 0 ) {
+            modbus_config_enable ( argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        }
+
+        // localaddr 
+        if ( strcmp_P ( strupr( argv[2]), PSTR("LOCALADDR")) == 0 ) {
+            modbus_config_localaddr ( argv[3]) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        }
+
+        // channel {0..%d} name slaaddr regaddr nro_recds fcode type codec div_p10
+        if ( strcmp_P ( strupr( argv[2]), PSTR("CHANNEL")) == 0 ) {
+            modbus_config_channel( atoi(argv[3]), argv[4], argv[5], argv[6], argv[7], argv[8],argv[9],argv[10], argv[11],argv[12] ) ? pv_snprintfP_OK() : pv_snprintfP_ERR();
+            return;
+        }
+    }
+    
     // CONSIGNAS
     // consigna enable hhmm_diurna hhmm_nocturna
     if (!strcmp_P( strupr(argv[1]), PSTR("CONSIGNA"))) { 
@@ -846,5 +925,22 @@ static bool test_valve( char *action)
     }
 
     return(false);
+}
+//------------------------------------------------------------------------------
+static bool test_modbus(void)
+{
+    
+	// modbus genpoll {type(F|I} sla fcode addr nro_recds
+	if ( strcmp_P( strupr(argv[2]), PSTR("GENPOLL")) ) {
+		return ( MODBUS_test_genpoll(argv) );
+	}
+    
+    // modbus chpoll {ch}
+	if ( strcmp_P( strupr(argv[2]), PSTR("CHPOLL")) == 0 ) {
+		return (MODBUS_test_channel(atoi(argv[3]) ));
+	}
+
+	return(false);
+
 }
 //------------------------------------------------------------------------------

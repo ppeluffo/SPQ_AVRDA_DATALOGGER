@@ -36,12 +36,13 @@ uint16_t (*ptrFuncGetCount) (void);
 // Puntero que nos da la direccion de comienzo del buffer de recepcion 
 char *(*ptrFuncRXBufferInit) (void);
 
-static SemaphoreHandle_t modbusLocalSem;
+SemaphoreHandle_t sem_Modbus;
+StaticSemaphore_t MODBUS_xMutexBuffer;
 
 //------------------------------------------------------------------------------
-void modbus_init_outofrtos( SemaphoreHandle_t semph)
+void modbus_init_outofrtos(void)
 {
-    modbusLocalSem = semph;
+    sem_Modbus = xSemaphoreCreateMutexStatic( &MODBUS_xMutexBuffer );
 }
 // -----------------------------------------------------------------------------
 void modbus_init( int fd_modbus, int buffer_size, void (*f)(void), uint16_t (*g)(void), char *(*h)(void)  )
@@ -101,7 +102,7 @@ uint8_t i = 0;
 
     xprintf_P( PSTR("Modbus: ( name,sla_addr,reg_addr,nro_regs,rcode,type,codec,factor_p10 )\r\n"));
     xprintf_P(PSTR(" debug: "));
-    f_debug_modbus ? xprintf_P(PSTR("true\r\n")) : xprintf_P(PSTR("false\r\n"));
+    f_debug_modbus ? xprintf_P(PSTR("on\r\n")) : xprintf_P(PSTR("off\r\n"));
 
     if ( modbus_conf.enabled ) {
         xprintf_P(PSTR(" status=enabled\r\n"));
@@ -730,6 +731,9 @@ void modbus_io( mbus_CONTROL_BLOCK_t *mbus_cb )
 	 * En mbus_cb.io_status tenemos el resultado de la operacion
 	 */
 
+    while ( xSemaphoreTake( sem_Modbus, ( TickType_t ) 5 ) != pdTRUE )
+  		vTaskDelay( ( TickType_t)( 1 ) );
+        
 	mbus_cb->io_status = false;
 	//
 	modbus_make_ADU ( mbus_cb);
@@ -741,6 +745,8 @@ void modbus_io( mbus_CONTROL_BLOCK_t *mbus_cb )
 	modbus_rcvd_ADU( mbus_cb );
 	modbus_decode_ADU ( mbus_cb );
 
+    xSemaphoreGive( sem_Modbus );
+    
 	return;
 }
 //------------------------------------------------------------------------------
@@ -1069,7 +1075,7 @@ void pv_encoder_f16_c1032(mbus_CONTROL_BLOCK_t *mbus_cb )
 //------------------------------------------------------------------------------
 // FUNCIONES DE TESTING
 //------------------------------------------------------------------------------
-void modbus_test_genpoll(char *arg_ptr[16] )
+bool MODBUS_test_genpoll(char *arg_ptr[16] )
 {
 
 	// Recibe el argv con los datos en char hex para trasmitir el frame.
@@ -1082,7 +1088,7 @@ void modbus_test_genpoll(char *arg_ptr[16] )
 
 	if ( arg_ptr[8] == NULL ) {
 		xprintf_P(PSTR("Error de argumentos\r\n"));
-		return;
+		return(false);
 	}
 
 	mbus_cb.channel.slave_address = atoi(arg_ptr[3]);
@@ -1104,7 +1110,7 @@ void modbus_test_genpoll(char *arg_ptr[16] )
 		mbus_cb.channel.type = FLOAT;
 	} else {
 		xprintf_P(PSTR("ERROR: tipo no soportado\r\n"));
-		return;
+		return(false);
 	}
 
 	// CODEC
@@ -1118,7 +1124,7 @@ void modbus_test_genpoll(char *arg_ptr[16] )
 		mbus_cb.channel.codec = CODEC2301;
 	} else {
 		xprintf_P(PSTR("ERROR: codec no soportado\r\n"));
-		return;
+		return(false);
 	}
 
 	mbus_cb.channel.divisor_p10 = 0;
@@ -1127,7 +1133,26 @@ void modbus_test_genpoll(char *arg_ptr[16] )
 	//
 	modbus_print_value( &mbus_cb );
 	xprintf_P(PSTR("MODBUS: GENPOLL END\r\n"));
+    return(true);
 
+}
+//------------------------------------------------------------------------------
+bool MODBUS_test_channel( uint8_t channel )
+{
+	// Hace un poleo de un canal modbus definido en el datalogger
+
+	if ( channel >= NRO_MODBUS_CHANNELS ) {
+		xprintf_P(PSTR("ERROR: Nro.canal < %d\r\n"), NRO_MODBUS_CHANNELS);
+		return(false);
+	}
+
+	if ( ! modbus_conf.mbch[channel].enabled ) {
+		xprintf_P(PSTR("ERROR: Canal no definido (X)\r\n"));
+		return(false);
+	}
+
+	modbus_read_channel( channel );
+    return(true);
 }
 //------------------------------------------------------------------------------
 void modbus_print_value( mbus_CONTROL_BLOCK_t *mbus_cb )
@@ -1166,7 +1191,7 @@ float pvalue;
 	}
 }
 //------------------------------------------------------------------------------
-uint8_t modbus_hash( uint8_t f_hash(uint8_t seed, char ch )  )
+uint8_t modbus_hash( void  )
 {
      /*
       * Calculo el hash de la configuracion de modbus.
@@ -1188,7 +1213,7 @@ uint8_t hash_buffer[64];
     }
     p = (char *)hash_buffer;
     while (*p != '\0') {
-        hash = f_hash(hash, *p++);
+        hash = u_hash(hash, *p++);
     }
     //xprintf_P(PSTR("HASH_MODBUS:%s, hash=%d\r\n"), hash_buffer, hash );   
     
@@ -1250,7 +1275,7 @@ uint8_t hash_buffer[64];
 
         p = (char *)hash_buffer;
         while (*p != '\0') {
-            hash = f_hash(hash, *p++);
+            hash = u_hash(hash, *p++);
         }
         //xprintf_P(PSTR("HASH_MODBUS:%s, hash=%d\r\n"), hash_buffer, hash );
     }

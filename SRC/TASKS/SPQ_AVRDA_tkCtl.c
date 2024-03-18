@@ -33,6 +33,7 @@ fat_s l_fat;
     systemConf.ptr_counter_conf = &counter_conf;
     systemConf.ptr_base_conf = &base_conf;
     systemConf.ptr_consigna_conf = &consigna_conf;
+    systemConf.ptr_modbus_conf = &modbus_conf;
     
     // Leo la configuracion de EE en systemConf
     xprintf_P(PSTR("Loading config...\r\n"));
