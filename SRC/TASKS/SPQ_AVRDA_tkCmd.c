@@ -109,13 +109,17 @@ static void cmdTestFunction(void)
     // test consigna {diurna|nocturna}
     if (!strcmp_P( strupr(argv[1]), PSTR("CONSIGNA"))  ) {
         if (!strcmp_P( strupr(argv[2]), PSTR("DIURNA"))  ) {
+            XCOMMS_ENTER_CRITICAL();
             consigna_set_diurna();
+            XCOMMS_EXIT_CRITICAL();
             pv_snprintfP_OK();
             return;
         }
         
         if (!strcmp_P( strupr(argv[2]), PSTR("NOCTURNA"))  ) {
+            XCOMMS_ENTER_CRITICAL();
             consigna_set_nocturna();
+            XCOMMS_EXIT_CRITICAL();
             pv_snprintfP_OK();
             return;
         }

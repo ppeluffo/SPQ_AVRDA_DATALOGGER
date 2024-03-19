@@ -1191,7 +1191,7 @@ float pvalue;
 	}
 }
 //------------------------------------------------------------------------------
-uint8_t modbus_hash( void  )
+uint8_t modbus_hash( void )
 {
      /*
       * Calculo el hash de la configuracion de modbus.
@@ -1199,36 +1199,36 @@ uint8_t modbus_hash( void  )
     
 uint8_t i,j;
 uint8_t hash = 0;
+uint8_t l_hash_buffer[64];
 char *p;
-uint8_t hash_buffer[64];
 
    // Calculo el hash de la configuracion modbus
 
-    memset(hash_buffer, '\0', sizeof(hash_buffer) );
+    memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
     j = 0;
     if ( modbus_conf.enabled ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[TRUE,%02d]"),modbus_conf.localaddr);
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[TRUE,%02d]"),modbus_conf.localaddr);
     } else {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[FALSE,%02d]"),modbus_conf.localaddr);
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[FALSE,%02d]"),modbus_conf.localaddr);
     }
-    p = (char *)hash_buffer;
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
         hash = u_hash(hash, *p++);
     }
     //xprintf_P(PSTR("HASH_MODBUS:%s, hash=%d\r\n"), hash_buffer, hash );   
     
     for(i=0; i < NRO_MODBUS_CHANNELS; i++) {
-        memset(hash_buffer, '\0', sizeof(hash_buffer) );
+        memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
         j = 0;
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[M%d:"), i);
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[M%d:"), i);
         
         if (modbus_conf.mbch[i].enabled ) {
-            j += sprintf_P( (char *)&hash_buffer[j], PSTR("TRUE,"));
+            j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("TRUE,"));
         } else {
-            j += sprintf_P( (char *)&hash_buffer[j], PSTR("FALSE,"));
+            j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("FALSE,"));
         }
         
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("%s,%02d,%04d,%02d,%02d,"),
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%s,%02d,%04d,%02d,%02d,"),
 				modbus_conf.mbch[i].name,
 				modbus_conf.mbch[i].slave_address,
 				modbus_conf.mbch[i].reg_address,
@@ -1239,41 +1239,41 @@ uint8_t hash_buffer[64];
         // TYPE
 		switch( modbus_conf.mbch[i].type ) {
 		case u16:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("U16,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("U16,"));
 			break;
 		case i16:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("I16,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("I16,"));
 			break;
 		case u32:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("U32,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("U32,"));
 			break;
 		case i32:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("I32,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("I32,"));
 			break;
 		case FLOAT:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("FLOAT,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("FLOAT,"));
 			break;
 		}
 
 		// CODEC
 		switch( modbus_conf.mbch[i].codec ) {
 		case CODEC0123:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("C0123,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("C0123,"));
 			break;
 		case CODEC1032:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("C1032,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("C1032,"));
 			break;
 		case CODEC3210:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("C3210,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("C3210,"));
 			break;
 		case CODEC2301:
-			j += sprintf_P( (char *)&hash_buffer[j], PSTR("C2301,"));
+			j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("C2301,"));
 			break;
 		}
 
-		j += sprintf_P( (char *)&hash_buffer[j], PSTR("%02d]"), modbus_conf.mbch[i].divisor_p10 );
+		j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%02d]"), modbus_conf.mbch[i].divisor_p10 );
 
-        p = (char *)hash_buffer;
+        p = (char *)l_hash_buffer;
         while (*p != '\0') {
             hash = u_hash(hash, *p++);
         }

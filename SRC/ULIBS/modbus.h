@@ -121,7 +121,7 @@ float modbus_read_channel ( uint8_t ch );
 
 void modbus_print_value( mbus_CONTROL_BLOCK_t *mbus_cb );
 
-uint8_t modbus_hash( void );
+uint8_t modbus_hash(void);
 
 bool MODBUS_test_genpoll(char *arg_ptr[16] );
 bool MODBUS_test_channel( uint8_t channel );

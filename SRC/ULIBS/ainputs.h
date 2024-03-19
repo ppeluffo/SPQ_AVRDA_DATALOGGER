@@ -72,7 +72,7 @@ void AINPUTS_EXIT_CRITICAL(void);
 void ainputs_config_defaults( void );
 void ainputs_print_configuration( void );
 bool ainputs_config_channel( uint8_t ch, char *s_enable, char *s_aname,char *s_imin,char *s_imax,char *s_mmin,char *s_mmax,char *s_offset );
-uint8_t ainputs_hash( void );
+uint8_t ainputs_hash(void);
 void ainputs_read_channel ( uint8_t ch, float *mag, uint16_t *raw );
 bool ainputs_test_read_channel( uint8_t ch );
 

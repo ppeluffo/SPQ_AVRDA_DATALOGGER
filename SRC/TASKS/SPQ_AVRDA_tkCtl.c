@@ -34,6 +34,7 @@ fat_s l_fat;
     systemConf.ptr_base_conf = &base_conf;
     systemConf.ptr_consigna_conf = &consigna_conf;
     systemConf.ptr_modbus_conf = &modbus_conf;
+    systemConf.ptr_piloto_conf = &piloto_conf;
     
     // Leo la configuracion de EE en systemConf
     xprintf_P(PSTR("Loading config...\r\n"));
@@ -91,11 +92,11 @@ static uint16_t wdg_count = 0;
 uint8_t i;
 
     //xprintf_P(PSTR("wdg reset\r\n"));
-    wdt_reset();
-    return;
+    //wdt_reset();
+    //return;
         
     // EL wdg lo leo cada 240secs ( 5 x 60 )
-    if ( wdg_count++ <  (240 / TKCTL_DELAY_S ) ) {
+    if ( wdg_count++ <  (180 / TKCTL_DELAY_S ) ) {
         wdt_reset();
         return;
     }

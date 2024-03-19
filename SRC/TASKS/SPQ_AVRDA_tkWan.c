@@ -76,6 +76,8 @@ fat_s l_fat1;
 
 uint16_t uxHighWaterMark;
 
+char tmpLocalStr[64] = { 0 };
+
 //------------------------------------------------------------------------------
 void tkWanRX(void * pvParameters)
 {
@@ -312,25 +314,23 @@ uint16_t i;
     }
     
 //    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
-//    xprintf_P(PSTR("STACK online_1 = %d\r\n"), uxHighWaterMark );
+//    xprintf_P(PSTR("STACK online_1 = %d\r\n"), uxHighWaterMark );   
     
-    wan_process_frame_configAinputs();
-    
- //   uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
-//    xprintf_P(PSTR("STACK online_2 = %d\r\n"), uxHighWaterMark );
+    wan_process_frame_configAinputs(); 
+//   uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
+//   xprintf_P(PSTR("STACK online_2 = %d\r\n"), uxHighWaterMark );
     
     wan_process_frame_configCounters();
-    
  //   uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
  //   xprintf_P(PSTR("STACK online_3 = %d\r\n"), uxHighWaterMark );
     
     wan_process_frame_configConsigna();
-    
     wan_process_frame_configModbus();
-    
     wan_process_frame_configPiloto();
     
-    u_save_config_in_NVM(); 
+    if ( ! u_save_config_in_NVM() ) {
+        xprintf_P(PSTR("WAN ERROR saving NVM !!!\r\n"));
+    }
  
     wan_state = WAN_ONLINE_DATA;
              
@@ -417,11 +417,15 @@ uint32_t waiting_secs;
 
     switch(systemConf.ptr_base_conf->pwr_modo) {
         case PWR_CONTINUO:
-            xprintf_P(PSTR("WAN:: DEBUG: pwr_continuo\r\n"));
+            if (f_debug_comms) {
+                xprintf_P(PSTR("WAN:: DEBUG: pwr_continuo\r\n"));
+            }
             waiting_secs = 0;
             break;
         case PWR_DISCRETO:
-            xprintf_P(PSTR("WAN:: DEBUG: pwr_discreto\r\n"));
+            if (f_debug_comms) {
+                xprintf_P(PSTR("WAN:: DEBUG: pwr_discreto\r\n"));
+            }
             waiting_secs = systemConf.ptr_base_conf->timerdial; 
             break;
         case PWR_MIXTO:
@@ -430,13 +434,15 @@ uint32_t waiting_secs;
             now = rtc.hour * 100 + rtc.min;
             pwr_on = systemConf.ptr_base_conf->pwr_hhmm_on;
             pwr_off = systemConf.ptr_base_conf->pwr_hhmm_off;
-            xprintf_P(PSTR("WAN:: DEBUG sleepTime A: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
-            
+            if (f_debug_comms) {
+                xprintf_P(PSTR("WAN:: DEBUG sleepTime A: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
+            }
             now = u_hhmm_to_mins(now);
             pwr_on = u_hhmm_to_mins( pwr_on );
             pwr_off = u_hhmm_to_mins( pwr_off );
-            xprintf_P(PSTR("WAN:: DEBUG sleepTime B: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
-            
+            if (f_debug_comms) {
+                xprintf_P(PSTR("WAN:: DEBUG sleepTime B: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
+            }
                     
             if ( pwr_on < pwr_off) {
                 // Caso A:
@@ -445,15 +451,21 @@ uint32_t waiting_secs;
                 //
                 if ( now < pwr_on ) {
                     // Estoy en A:mixto->apagado
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_A\r\n"));
+                    if (f_debug_comms) {
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_A\r\n"));
+                    }                    
                     waiting_secs = (pwr_on - now)*60;
                 } else if ( now < pwr_off) {
                     // Estoy en B:mixto->continuo
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_B\r\n"));
+                    if (f_debug_comms) { 
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_B\r\n"));
+                    }
                     waiting_secs = 0;
                 } else {
                     // Estoy en C:mixto->apagado
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_C\r\n"));
+                    if (f_debug_comms) {
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_C\r\n"));
+                    }
                     waiting_secs = (1440 - now + pwr_on)*60;
                 }
             
@@ -464,15 +476,21 @@ uint32_t waiting_secs;
                 //
                 if ( now < pwr_off) {
                     // Estoy en D: mixto->continuo
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_D\r\n"));
+                    if (f_debug_comms) {
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_D\r\n"));
+                    }
                     waiting_secs = 0;
                 } else if (now < pwr_on) {
                     // Estoy en E: mixto->apagado
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_E\r\n"));
+                    if (f_debug_comms) {
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_E\r\n"));
+                    }
                     waiting_secs = (pwr_on - now)*60;
                 } else {
                     // Estoy en F:mixto->prendido
-                    xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_F\r\n"));
+                    if (f_debug_comms) {
+                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_F\r\n"));
+                    }
                     waiting_secs = 0;
                 }
             } 
@@ -483,7 +501,9 @@ uint32_t waiting_secs;
             break;
     }
     
-    xprintf_P(PSTR("WAN:: DEBUG: waiting_ticks=%lu secs\r\n"), waiting_secs);
+    if (f_debug_comms) {
+        xprintf_P(PSTR("WAN:: DEBUG: waiting_ticks=%lu secs\r\n"), waiting_secs);
+    }
     return(waiting_secs);
 }
 //------------------------------------------------------------------------------
@@ -618,7 +638,6 @@ static bool wan_process_rsp_recoverId(void)
      *          <html><body><h1>CLASS=RECOVER&ID=DEFAULT</h1></body></html>
      */
     
-char localStr[32] = { 0 };
 char *stringp = NULL;
 char *token = NULL;
 char *delim = "&,;:=><";
@@ -628,10 +647,10 @@ char *p;
     p = lBchar_get_buffer(&wan_rx_lbuffer);
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-	memset(localStr,'\0',sizeof(localStr));
+	memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "RECOVER");
-	strncpy(localStr, ts, sizeof(localStr));
-	stringp = localStr;
+	strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+	stringp = tmpLocalStr;
 	token = strsep(&stringp,delim);	    // RECOVER
 	token = strsep(&stringp,delim);	 	// ID
 	token = strsep(&stringp,delim);	 	// TEST01
@@ -655,7 +674,7 @@ static bool wan_process_frame_configBase(void)
 uint8_t tryes = 0;
 uint8_t timeout = 0;
 bool retS = false;
-uint8_t hash;
+uint8_t hash = 0;
 
     xprintf_P(PSTR("WAN:: CONFIG_BASE.\r\n"));   
     
@@ -664,7 +683,8 @@ uint8_t hash;
         vTaskDelay( ( TickType_t)( 1 ) );
     
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
-    hash = u_confbase_hash();
+   
+    hash = u_confbase_hash();      
     snprintf( wan_tx_buffer, WAN_TX_BUFFER_SIZE,"ID=%s&TYPE=%s&VER=%s&CLASS=CONF_BASE&UID=%s&HASH=0x%02X", systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, NVM_signature2str(), hash );
    
     // Proceso. Envio hasta 3 veces el frame y espero hasta 10s la respuesta
@@ -720,7 +740,6 @@ static bool wan_process_rsp_configBase(void)
      *                          
      */
     
-char localStr[32] = { 0 };
 char *stringp = NULL;
 char *token = NULL;
 char *delim = "&,;:=><";
@@ -747,11 +766,11 @@ char *p;
     }
          
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-	memset(localStr,'\0',sizeof(localStr));
+	memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "TPOLL=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);	 	// TPOLL
         token = strsep(&stringp,delim);	 	// timerpoll
         u_config_timerpoll(token);
@@ -759,11 +778,11 @@ char *p;
     }
     //
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "TDIAL=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);	 	// TDIAL
         token = strsep(&stringp,delim);	 	// timerdial
         u_config_timerdial(token);
@@ -771,11 +790,11 @@ char *p;
     }
     //
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "PWRMODO=");
 	if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);	 	// PWRMODO
         token = strsep(&stringp,delim);	 	// pwrmodo_string
         u_config_pwrmodo(token);
@@ -783,11 +802,11 @@ char *p;
     }
     //
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "PWRON=");
 	if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);	 	// PWRON
         token = strsep(&stringp,delim);	 	// pwron
         u_config_pwron(token);
@@ -795,11 +814,11 @@ char *p;
     }
     //
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "PWROFF=");
 	if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);	 	// PWROFF
         token = strsep(&stringp,delim);	 	// pwroff
         u_config_pwroff(token);
@@ -833,7 +852,8 @@ uint8_t hash = 0;
         vTaskDelay( ( TickType_t)( 1 ) );
     
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
-    hash = ainputs_hash();
+    
+    hash = ainputs_hash(); 
     snprintf( (char*)&wan_tx_buffer, WAN_TX_BUFFER_SIZE, "ID=%s&TYPE=%s&VER=%s&CLASS=CONF_AINPUTS&HASH=0x%02X", systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
     // Proceso. Envio hasta 2 veces el frame y espero hasta 10s la respuesta
     tryes = 2;
@@ -889,7 +909,6 @@ static bool wan_process_rsp_configAinputs(void)
      */
     
 char *ts = NULL;
-char localStr[32] = { 0 };
 char *stringp = NULL;
 char *tk_name= NULL;
 char *tk_enable= NULL;
@@ -920,10 +939,10 @@ bool retS = false;
 		snprintf_P( str_base, sizeof(str_base), PSTR("A%d=\0"), ch );
 
 		if ( strstr( p, str_base) != NULL ) {
-			memset(localStr,'\0',sizeof(localStr));
+			memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
             ts = strstr( p, str_base);
-			strncpy( localStr, ts, sizeof(localStr));
-			stringp = localStr;
+			strncpy( tmpLocalStr, ts, sizeof(tmpLocalStr));
+			stringp = tmpLocalStr;
 			tk_name = strsep(&stringp,delim);		//A0
             tk_enable = strsep(&stringp,delim);     // enable
 			tk_name = strsep(&stringp,delim);		//name
@@ -964,6 +983,7 @@ uint8_t hash = 0;
         vTaskDelay( ( TickType_t)( 1 ) );
     
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
+    
     hash = counter_hash();
     sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_COUNTERS&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
@@ -1020,7 +1040,6 @@ static bool wan_process_rsp_configCounters(void)
      */
 
 char *ts = NULL;
-char localStr[32] = { 0 };
 char *stringp = NULL;
 char *tk_name = NULL;
 char *tk_enable= NULL;
@@ -1042,10 +1061,10 @@ bool retS = false;
 	snprintf_P( str_base, sizeof(str_base), PSTR("C0") );
 
 	if ( strstr( p, str_base) != NULL ) {
-		memset(localStr,'\0',sizeof(localStr));
+		memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 		ts = strstr( p, str_base);
-		strncpy(localStr, ts, sizeof(localStr));
-		stringp = localStr;
+		strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+		stringp = tmpLocalStr;
 		tk_enable = strsep(&stringp,delim);		//C0
         tk_enable = strsep(&stringp,delim);     //enable
 		tk_name = strsep(&stringp,delim);		//name
@@ -1084,6 +1103,7 @@ uint8_t hash = 0;
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
+    
     hash = consigna_hash();
     sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_CONSIGNA&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
@@ -1139,7 +1159,6 @@ static bool wan_process_rsp_configConsigna(void)
      * 
      */
   
-char localStr[64] = { 0 };
 char *token = NULL;
 char *tk_enable = NULL;
 char *tk_diurna = NULL;
@@ -1163,11 +1182,11 @@ bool retS = false;
     }
          
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-	memset(localStr,'\0',sizeof(localStr));
+	memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "ENABLE=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        token = strtok (localStr, delim);       
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        token = strtok (tmpLocalStr, delim);       
         while ( token != NULL ) {
             //xprintf_P(PSTR("TOK=%s\r\n"), token ); //printing each token
             if (strstr(token,"ENABLE") != NULL ) {
@@ -1216,6 +1235,7 @@ uint8_t hash = 0;
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
+    
     hash = modbus_hash();
     sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_MODBUS&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
@@ -1280,7 +1300,6 @@ static bool wan_process_rsp_configModbus(void)
 
     
 char *ts = NULL;
-char localStr[48] = { 0 };
 char *stringp = NULL;
 char *tk_address = NULL;
 char *tk_enable= NULL;
@@ -1312,11 +1331,11 @@ bool retS = false;
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "ENABLE=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         tk_enable = strsep(&stringp,delim);	 	// ENABLE
         tk_enable = strsep(&stringp,delim);	 	// TRUE/FALSE
         modbus_config_enable( tk_enable);
@@ -1324,11 +1343,11 @@ bool retS = false;
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "LOCALADDR=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         tk_address = strsep(&stringp,delim);	 	// ENABLE
         tk_address = strsep(&stringp,delim);	 	// TRUE/FALSE
         modbus_config_localaddr( tk_address);
@@ -1344,10 +1363,10 @@ bool retS = false;
 		snprintf_P( str_base, sizeof(str_base), PSTR("M%d="), ch );
 
 		if ( strstr( p, str_base) != NULL ) {
-			memset(localStr,'\0',sizeof(localStr));
+			memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
             ts = strstr( p, str_base);
-			strncpy( localStr, ts, sizeof(localStr));
-			stringp = localStr;
+			strncpy( tmpLocalStr, ts, sizeof(tmpLocalStr));
+			stringp = tmpLocalStr;
 			tk_enable = strsep(&stringp,delim);	    //M0
             tk_enable = strsep(&stringp,delim);     //enable
 			tk_name = strsep(&stringp,delim);		//name
@@ -1397,7 +1416,9 @@ uint8_t hash = 0;
     // Armo el buffer
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
+   
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
+   
     hash = piloto_hash();
     sprintf_P( (char*)&wan_tx_buffer, PSTR("ID=%s&TYPE=%s&VER=%s&CLASS=CONF_PILOTO&HASH=0x%02X"), systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, hash );
 
@@ -1459,7 +1480,6 @@ static bool wan_process_rsp_configPiloto(void)
 
     
 char *ts = NULL;
-char localStr[48] = { 0 };
 char *stringp = NULL;
 char *tk_enable= NULL;
 char *tk_pulsexrev= NULL;
@@ -1486,11 +1506,11 @@ bool retS = false;
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "ENABLE=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         tk_enable = strsep(&stringp,delim);	 	// ENABLE
         tk_enable = strsep(&stringp,delim);	 	// TRUE/FALSE
         piloto_config_enable(tk_enable);
@@ -1498,11 +1518,11 @@ bool retS = false;
     }
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "PULSEXREV=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         tk_pulsexrev = strsep(&stringp,delim);	 	// PULSEXREV
         tk_pulsexrev = strsep(&stringp,delim);	 	// 1500
         piloto_config_pulseXrev(tk_pulsexrev);
@@ -1510,11 +1530,11 @@ bool retS = false;
     }
     
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-    memset(localStr,'\0',sizeof(localStr));
+    memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
 	ts = strstr( p, "PWIDTH=");
     if  ( ts != NULL ) {
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         tk_pwidth = strsep(&stringp,delim);	 	// PWIDTH
         tk_pwidth = strsep(&stringp,delim);	 	// 10
         piloto_config_pwidth(tk_pwidth);
@@ -1530,10 +1550,10 @@ bool retS = false;
 		snprintf_P( str_base, sizeof(str_base), PSTR("S%d"), slot );
 
 		if ( strstr( p, str_base) != NULL ) {
-			memset(localStr,'\0',sizeof(localStr));
+			memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
             ts = strstr( p, str_base);
-			strncpy( localStr, ts, sizeof(localStr));
-			stringp = localStr;
+			strncpy( tmpLocalStr, ts, sizeof(tmpLocalStr));
+			stringp = tmpLocalStr;
 			tk_stime = strsep(&stringp,delim);	   //Sx
             tk_stime = strsep(&stringp,delim);     //time
 			tk_spres = strsep(&stringp,delim);	   //pres
@@ -1616,9 +1636,8 @@ uint8_t tryes = 0;
 uint8_t timeout = 0;
 bool retS = false;
 
-    if (f_debug_comms) {
-        xprintf_P(PSTR("WAN:: DATA.\r\n"));
-    }
+
+    xprintf_P(PSTR("WAN:: DATA.\r\n"));
 
     while ( xSemaphoreTake( sem_WAN, MSTOTAKEWANSEMPH ) != pdTRUE )
         vTaskDelay( ( TickType_t)( 1 ) );
@@ -1718,7 +1737,6 @@ static bool wan_process_rsp_data(void)
      * Podemos recibir CLOCK, RESET, PILOTO
      */
     
-char localStr[32] = { 0 };
 char *ts = NULL;
 char *stringp = NULL;
 char *token = NULL;
@@ -1731,10 +1749,10 @@ char *p;
     //xprintf_P(PSTR("WAN:: response\r\n") );
     
     if ( strstr( p, "CLOCK") != NULL ) {
-        memset(localStr,'\0',sizeof(localStr));
+        memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
         ts = strstr( p, "CLOCK=");
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);			// CLOCK
         token = strsep(&stringp,delim);			// 1910120345
 
@@ -1750,10 +1768,10 @@ char *p;
     }
     
     if ( strstr( p, "PILOTO") != NULL ) {
-        memset(localStr,'\0',sizeof(localStr));
+        memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
         ts = strstr( p, "PILOTO=");
-        strncpy(localStr, ts, sizeof(localStr));
-        stringp = localStr;
+        strncpy(tmpLocalStr, ts, sizeof(tmpLocalStr));
+        stringp = tmpLocalStr;
         token = strsep(&stringp,delim);			// PILOTO
         token = strsep(&stringp,delim);			// 3.45
         PILOTO_productor_handler_online(atof(token));
@@ -1797,9 +1815,9 @@ static void wan_xmit_out(void )
     lBchar_Flush(&wan_rx_lbuffer);
     xfprintf_P( fdWAN, PSTR("%s"), wan_tx_buffer);
     
-    if (f_debug_comms ) {
+    //if (f_debug_comms ) {
         xprintf_P( PSTR("Xmit-> %s\r\n"), wan_tx_buffer);
-    }
+    //}
     
 }
 //------------------------------------------------------------------------------
@@ -1814,9 +1832,9 @@ char *p;
     p = lBchar_get_buffer(&wan_rx_lbuffer);
         
     if ( strstr( p, s) != NULL ) {
-        //if (f_debug_comms) {
-        //    xprintf_P( PSTR("rxbuff-> %s\r\n"), p);
-        //}
+        if (f_debug_comms) {
+            xprintf_P( PSTR("rxbuff-> %s\r\n"), p);
+        }
         return(true);
     }
     return (false);
@@ -1871,7 +1889,9 @@ fat_s l_fat;
          * Indico que hay un dato listo para enviar
          * Aviso (despierto) para que se transmita.
          */
-        xprintf_P(PSTR("WAN:: New dataframe.\r\n"));
+        if (f_debug_comms) {
+            xprintf_P(PSTR("WAN:: New dataframe.\r\n"));
+        }
         
         memcpy( &drWanBuffer.dr, dataRcd, sizeof(dataRcd_s));
         drWanBuffer.dr_ready = true;    
@@ -1903,7 +1923,7 @@ void WAN_print_configuration(void)
     
     xprintf_P(PSTR("Comms:\r\n"));
     xprintf_P(PSTR(" debug: "));
-    f_debug_comms ? xprintf_P(PSTR("true\r\n")) : xprintf_P(PSTR("false\r\n"));
+    f_debug_comms ? xprintf_P(PSTR("on\r\n")) : xprintf_P(PSTR("off\r\n"));
     
 }
 //------------------------------------------------------------------------------

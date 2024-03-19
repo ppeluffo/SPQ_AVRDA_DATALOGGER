@@ -3,6 +3,8 @@
 
 #define ADC_SAMPLES 32
 
+uint16_t adc_buffer[32];
+
 //------------------------------------------------------------------------------
 /**
  * \brief Initialize ADC interface
@@ -225,7 +227,6 @@ uint16_t adc_acc;
 uint16_t ADC_read(uint8_t samples)
 {
     
-uint16_t adc_buffer[32];
 uint8_t i;
 float adc_acc;
 

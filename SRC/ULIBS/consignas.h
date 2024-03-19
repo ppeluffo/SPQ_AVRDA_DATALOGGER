@@ -24,6 +24,7 @@ extern "C" {
 #include "toyi_valves.h"
 #include "rtc79410.h"
 #include "utils.h"
+#include "pines.h"
     
 typedef struct {
     bool enabled;
@@ -33,13 +34,16 @@ typedef struct {
 
 consigna_conf_t consigna_conf;
 
+typedef enum { CONSIGNA_DIURNA = 0, CONSIGNA_NOCTURNA } consigna_t;
+
+consigna_t consigna_aplicada;
+
 void consigna_config_defaults(void);
 bool consigna_config( char *s_enable, char *s_cdiurna, char *s_cnocturna );
 void consigna_print_configuration(void);
 uint8_t consigna_hash(void);
 void consigna_set_diurna(void);
 void consigna_set_nocturna(void);
-void consigna_service(void);
 
 #ifdef	__cplusplus
 }

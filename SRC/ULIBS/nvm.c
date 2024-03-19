@@ -9,6 +9,8 @@
 
 char nvm_str_buffer[38];
 
+nvm_device_serial_id_t avr_id;
+
 //------------------------------------------------------------------------------
 uint16_t nvm_read_signature_sum(void)
 {
@@ -45,7 +47,6 @@ char *NVM_id2str(void)
      * Retorna el ID en el string dst
      */
 
-nvm_device_serial_id_t avr_id;
 uint8_t fptr = 0;
 
     memset(nvm_str_buffer, '\0', sizeof(nvm_str_buffer));
@@ -60,7 +61,6 @@ char *NVM_signature2str( void )
      * Retorna el SIGNATURE en el string dst
      */
 
-nvm_device_serial_id_t avr_id;
 uint8_t fptr = 0;
 
     memset(nvm_str_buffer, '\0', sizeof(nvm_str_buffer));
@@ -77,7 +77,6 @@ uint8_t fptr = 0;
 //------------------------------------------------------------------------------
 void nvm_read_print_id(void)
 {
-nvm_device_serial_id_t avr_id;
 
     NVM_ID_read( &avr_id );
     //xprintf_P(PSTR("AVR_ID: 0x%02x 0x%02x 0x%02x\r\n"), avr_id.devid0, avr_id.devid1, avr_id.devid2);

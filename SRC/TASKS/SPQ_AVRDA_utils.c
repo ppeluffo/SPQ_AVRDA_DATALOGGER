@@ -13,6 +13,19 @@ int8_t WDT_init(void);
 int8_t CLKCTRL_init(void);
 uint8_t checksum( uint8_t *s, uint16_t size );
 
+struct {
+    base_conf_t base_conf;
+	ainputs_conf_t ainputs_conf;
+    counter_conf_t counter_conf;
+    consigna_conf_t consigna_conf;
+    modbus_conf_t modbus_conf;
+    piloto_conf_t piloto_conf;
+    
+    // El checksum SIEMPRE debe ser el ultimo byte !!!!!
+    uint8_t checksum;
+    
+} memConfBuffer;
+
 //-----------------------------------------------------------------------------
 void system_init()
 {
@@ -116,16 +129,7 @@ bool u_save_config_in_NVM(void)
 int8_t retVal;
 uint8_t cks;
 
-struct {
-    base_conf_t base_conf;
-	ainputs_conf_t ainputs_conf;
-    counter_conf_t counter_conf;
-    consigna_conf_t consigna_conf;
-    modbus_conf_t modbus_conf;
-    piloto_conf_t piloto_conf;
-    // El checksum SIEMPRE debe ser el ultimo byte !!!!!
-    uint8_t checksum;
-} memConfBuffer;
+    memset( &memConfBuffer, '\0', sizeof(memConfBuffer));
 
     // Cargamos el buffer con las configuraciones
     memcpy( &memConfBuffer.base_conf, systemConf.ptr_base_conf, sizeof(base_conf));
@@ -138,10 +142,9 @@ struct {
     cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     memConfBuffer.checksum = cks;
 
-    xprintf_P(PSTR("SAVE DEBUG: memblock size = %d\r\n"), sizeof(memConfBuffer));
-    
     retVal = NVMEE_write( 0x00, (char *)&memConfBuffer, sizeof(memConfBuffer) );
-    
+
+    xprintf_P(PSTR("SAVE NVM: memblock size = %d\r\n"), sizeof(memConfBuffer));    
     //xprintf_P(PSTR("DEBUG: Save in NVM OK\r\n"));
     
     if (retVal == -1 )
@@ -155,20 +158,14 @@ bool u_load_config_from_NVM(void)
 {
 
 uint8_t rd_cks, calc_cks;
-struct {
-    base_conf_t base_conf;
-	ainputs_conf_t ainputs_conf;
-    counter_conf_t counter_conf;
-    consigna_conf_t consigna_conf;
-    modbus_conf_t modbus_conf;
-    piloto_conf_t piloto_conf;
-    // El checksum SIEMPRE debe ser el ultimo byte !!!!!
-    uint8_t checksum;
-} memConfBuffer;
 
+    xprintf_P(PSTR("NVM: memblock size=%d\r\n"), sizeof(memConfBuffer));
+
+    memset( &memConfBuffer, '\0', sizeof(memConfBuffer));
+    
     NVMEE_read( 0x00, (char *)&memConfBuffer, sizeof(memConfBuffer) );
     rd_cks = memConfBuffer.checksum;
-    
+        
     calc_cks = checksum ( (uint8_t *)&memConfBuffer, ( sizeof(memConfBuffer) - 1));
     
     if ( calc_cks != rd_cks ) {
@@ -176,13 +173,13 @@ struct {
         
 		return(false);
 	}
-    
+        
     // Desarmo el buffer de memoria
-    memcpy( systemConf.ptr_base_conf, &memConfBuffer.base_conf, sizeof(base_conf));
+    memcpy( systemConf.ptr_base_conf, &memConfBuffer.base_conf, sizeof(base_conf));       
     memcpy( systemConf.ptr_ainputs_conf, &memConfBuffer.ainputs_conf, sizeof(ainputs_conf));
-    memcpy( systemConf.ptr_counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf));
+    memcpy( systemConf.ptr_counter_conf, &memConfBuffer.counter_conf, sizeof(counter_conf)); 
     memcpy( systemConf.ptr_consigna_conf, &memConfBuffer.consigna_conf, sizeof(consigna_conf));
-    memcpy( systemConf.ptr_modbus_conf, &memConfBuffer.modbus_conf, sizeof(modbus_conf));
+    memcpy( systemConf.ptr_modbus_conf, &memConfBuffer.modbus_conf, sizeof(modbus_conf));    
     memcpy( systemConf.ptr_piloto_conf, &memConfBuffer.piloto_conf, sizeof(piloto_conf));
     return(true);
 }
@@ -425,6 +422,7 @@ counter_value_t cnt;
     }
     
     // Modbus 
+    
     modbus_read ( dataRcd->modbus );
     
     // Bateria
@@ -509,6 +507,17 @@ void SYSTEM_EXIT_CRITICAL(void)
     xSemaphoreGive( sem_SYSVars );
 }
 //------------------------------------------------------------------------------
+void XCOMMS_ENTER_CRITICAL(void)
+{
+    while ( xSemaphoreTake( sem_XCOMMS, ( TickType_t ) 5 ) != pdTRUE )
+  		vTaskDelay( ( TickType_t)( 10 ) );   
+}
+//------------------------------------------------------------------------------
+void XCOMMS_EXIT_CRITICAL(void)
+{
+    xSemaphoreGive( sem_XCOMMS );
+}
+//------------------------------------------------------------------------------
 void u_data_resync_clock( char *str_time, bool force_adjust)
 {
 	/*
@@ -581,6 +590,7 @@ void u_reset_memory_remote(void)
     vTaskSuspend( xHandle_tkSys );
     vTaskSuspend( xHandle_tkWanRX );
     vTaskSuspend( xHandle_tkWan );
+    vTaskSuspend( xHandle_tkRS485RX );
         
     //FS_format(true);
     
@@ -589,49 +599,49 @@ void u_reset_memory_remote(void)
     
 }
 //------------------------------------------------------------------------------
-uint8_t u_confbase_hash(void)
+uint8_t u_confbase_hash( void )
 {
-   
-uint8_t hash_buffer[32];
+
 uint8_t hash = 0;
 char *p;
+uint8_t l_hash_buffer[64];
 
     // Calculo el hash de la configuracion base
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    sprintf_P( (char *)&hash_buffer, PSTR("[TIMERPOLL:%03d]"), systemConf.ptr_base_conf->timerpoll );
-    p = (char *)hash_buffer;
+    memset( l_hash_buffer, '\0', sizeof(l_hash_buffer));
+    sprintf_P( (char *)l_hash_buffer, PSTR("[TIMERPOLL:%03d]"), systemConf.ptr_base_conf->timerpoll );
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
 		hash = u_hash(hash, *p++);
 	}
     //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
     //
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    sprintf_P( (char *)&hash_buffer, PSTR("[TIMERDIAL:%03d]"), systemConf.ptr_base_conf->timerdial );
-    p = (char *)hash_buffer;
+    memset(l_hash_buffer, '\0',sizeof(l_hash_buffer) );
+    sprintf_P( (char *)l_hash_buffer, PSTR("[TIMERDIAL:%03d]"), systemConf.ptr_base_conf->timerdial );
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
 		hash = u_hash(hash, *p++);
 	}
     //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );    
     //
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    sprintf_P( (char *)&hash_buffer, PSTR("[PWRMODO:%d]"), systemConf.ptr_base_conf->pwr_modo );
-    p = (char *)hash_buffer;
+    memset(l_hash_buffer, '\0', sizeof(l_hash_buffer));
+    sprintf_P( (char *)l_hash_buffer, PSTR("[PWRMODO:%d]"), systemConf.ptr_base_conf->pwr_modo );
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
 		hash = u_hash(hash, *p++);
 	}
     //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
     //
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    sprintf_P( (char *)&hash_buffer, PSTR("[PWRON:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_on );
-    p = (char *)hash_buffer;
+    memset(l_hash_buffer, '\0', sizeof(l_hash_buffer));
+    sprintf_P( (char *)l_hash_buffer, PSTR("[PWRON:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_on );
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
 		hash = u_hash(hash, *p++);
 	}
     //xprintf_P(PSTR("HASH_BASE:<%s>, hash=%d\r\n"),hash_buffer, hash );
     //
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    sprintf_P( (char *)&hash_buffer, PSTR("[PWROFF:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_off );
-    p = (char *)hash_buffer;
+    memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
+    sprintf_P( (char *)l_hash_buffer, PSTR("[PWROFF:%04d]"), systemConf.ptr_base_conf->pwr_hhmm_off );
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
 		hash = u_hash(hash, *p++);
 	}
@@ -732,6 +742,14 @@ void u_print_tasks_running(void)
     if ( (task_running & WANRX_WDG_gc ) != 0 ) {
         xprintf_P(PSTR(" wanrx"));
     }
+
+    if ( (task_running & RS485RX_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" rs485rx"));
+    }
+    
+    if ( (task_running & CTLPRES_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" cpres"));
+    }
     
     xprintf_P(PSTR("\r\n"));
     
@@ -774,6 +792,9 @@ uint16_t uxHighWaterMark;
     
     uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkRS485RX );
     xprintf_P(PSTR("tkRS485RX stack = %d\r\n"), uxHighWaterMark );
+    
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkCtlPresion );
+    xprintf_P(PSTR("tkCtlPresion stack = %d\r\n"), uxHighWaterMark );
     
 }
 //------------------------------------------------------------------------------

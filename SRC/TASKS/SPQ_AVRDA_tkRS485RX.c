@@ -27,6 +27,10 @@ uint8_t c = 0;
     while ( ! starting_flag )
         vTaskDelay( ( TickType_t)( 100 / portTICK_PERIOD_MS ) );
 
+    SYSTEM_ENTER_CRITICAL();
+    task_running |= RS485RX_WDG_gc;
+    SYSTEM_EXIT_CRITICAL();
+    
 	vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
 
     lBchar_CreateStatic ( &rs485rx_lbuffer, rs485rx_buffer, RS485RX_BUFFER_SIZE );

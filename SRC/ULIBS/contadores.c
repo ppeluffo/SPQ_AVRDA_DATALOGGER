@@ -162,36 +162,36 @@ void counter_clear(void)
     contador.pulsos = 0;
 }
 //------------------------------------------------------------------------------
-uint8_t counter_hash( void )
+uint8_t counter_hash(void)
 {
     
-uint8_t hash_buffer[32];
 uint8_t j;
 uint8_t hash = 0;
+uint8_t l_hash_buffer[64];
 char *p;
 
     // Calculo el hash de la configuracion de los contadores
 
 
-    memset(hash_buffer, '\0', sizeof(hash_buffer));
-    j = sprintf_P( (char *)&hash_buffer, PSTR("[C0:") );
+    memset( l_hash_buffer, '\0', sizeof(l_hash_buffer));
+    j = sprintf_P( (char *)&l_hash_buffer, PSTR("[C0:") );
     
     if ( counter_conf.enabled ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("TRUE,") );
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("TRUE,") );
     } else {
-       j += sprintf_P( (char *)&hash_buffer[j], PSTR("FALSE,") );
+       j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("FALSE,") );
     }
         
-    j += sprintf_P( (char *)&hash_buffer[j], PSTR("%s,"), counter_conf.name );
-    j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.03f,"), counter_conf.magpp );
+    j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%s,"), counter_conf.name );
+    j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%.03f,"), counter_conf.magpp );
         
     if ( counter_conf.modo_medida == 0 ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("CAUDAL]"));
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("CAUDAL]"));
     } else {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("PULSOS]"));
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("PULSOS]"));
     }
 
-    p = (char *)hash_buffer;
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
         hash = u_hash(hash, *p++);
     }

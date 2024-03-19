@@ -133,12 +133,14 @@ int main(void) {
     // Init out of rtos !!!
     system_init();
     
-    frtos_open(fdTERM, 9600 );
+    frtos_open(fdTERM, 115200 );
     frtos_open(fdWAN, 9600 );
     frtos_open(fdI2C1, 100 );
     frtos_open(fdNVM, 0 );
     
     sem_SYSVars = xSemaphoreCreateMutexStatic( &SYSVARS_xMutexBuffer );
+    sem_XCOMMS = xSemaphoreCreateMutexStatic( &XCOMMS_xMutexBuffer );
+    
     FS_init();
     ainputs_init_outofrtos();
     counter_init_outofrtos();
@@ -155,7 +157,8 @@ int main(void) {
     xHandle_tkWanRX = xTaskCreateStatic( tkWanRX, "WANRX", tkWanRX_STACK_SIZE, (void *)1, tkWanRX_TASK_PRIORITY, tkWanRX_Buffer, &tkWanRX_Buffer_Ptr );
     xHandle_tkWan = xTaskCreateStatic( tkWan, "WAN", tkWan_STACK_SIZE, (void *)1, tkWan_TASK_PRIORITY, tkWan_Buffer, &tkWan_Buffer_Ptr );
     xHandle_tkRS485RX = xTaskCreateStatic( tkRS485RX, "RS485", tkRS485RX_STACK_SIZE, (void *)1, tkRS485RX_TASK_PRIORITY, tkRS485RX_Buffer, &tkRS485RX_Buffer_Ptr );
-    
+    xHandle_tkCtlPresion = xTaskCreateStatic( tkCtlPresion, "CPRES", tkCtlPresion_STACK_SIZE, (void *)1, tkCtlPresion_TASK_PRIORITY, tkCtlPresion_Buffer, &tkCtlPresion_Buffer_Ptr );
+
     /* Arranco el RTOS. */
 	vTaskStartScheduler();
   

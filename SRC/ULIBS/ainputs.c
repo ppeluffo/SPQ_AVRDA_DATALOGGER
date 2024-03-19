@@ -378,12 +378,12 @@ bool ainputs_read_debug(void)
     return (f_debug_ainputs);
 }
 //------------------------------------------------------------------------------
-uint8_t ainputs_hash( void )
+uint8_t ainputs_hash(void)
 {
-    
-uint8_t hash_buffer[48];
+
 uint8_t i,j;
 uint8_t hash = 0;
+uint8_t l_hash_buffer[64];
 char *p;
 
 //    globaluxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
@@ -392,24 +392,24 @@ char *p;
     // Calculo el hash de la configuracion de las ainputs
     for(i=0; i<NRO_ANALOG_CHANNELS; i++) {
         
-        memset(hash_buffer, '\0', sizeof(hash_buffer));
+        memset(l_hash_buffer, '\0',sizeof(l_hash_buffer) );
         j = 0;
         if ( ainputs_conf.channel[i].enabled ) {
-            j += sprintf_P( (char *)&hash_buffer[j], PSTR("[A%d:TRUE,"), i );
+            j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[A%d:TRUE,"), i );
         } else {
-            j += sprintf_P( (char *)&hash_buffer[j], PSTR("[A%d:FALSE,"), i );
+            j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[A%d:FALSE,"), i );
         }
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("%s,"), ainputs_conf.channel[i].name );
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("%d,%d,"), ainputs_conf.channel[i].imin, ainputs_conf.channel[i].imax );
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.02f,%.02f,"), ainputs_conf.channel[i].mmin, ainputs_conf.channel[i].mmax );
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("%.02f]"), ainputs_conf.channel[i].offset);    
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%s,"), ainputs_conf.channel[i].name );
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%d,%d,"), ainputs_conf.channel[i].imin, ainputs_conf.channel[i].imax );
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%.02f,%.02f,"), ainputs_conf.channel[i].mmin, ainputs_conf.channel[i].mmax );
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("%.02f]"), ainputs_conf.channel[i].offset);    
         
 //        xprintf_P(PSTR("HASH_AIN:<%s>\r\n"), hash_buffer);
         
 //        globaluxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
 //        xprintf_P(PSTR("STACK ainputs_%d = %d, j=%d\r\n"), i, globaluxHighWaterMark,j );
     
-        p = (char *)hash_buffer;
+        p = (char *)l_hash_buffer;
         
         while (*p != '\0') {
             hash = u_hash(hash, *p++);

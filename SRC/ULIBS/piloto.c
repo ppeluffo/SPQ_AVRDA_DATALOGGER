@@ -596,31 +596,31 @@ uint8_t piloto_hash( void )
 uint8_t i,j;
 uint8_t hash = 0;
 char *p;
-uint8_t hash_buffer[64];
+uint8_t l_hash_buffer[64];
 
    // Calculo el hash de la configuracion modbus
 
-    memset(hash_buffer, '\0', sizeof(hash_buffer) );
+    memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
     j = 0;
     if ( piloto_conf.enabled ) {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[TRUE,%04d,%02d]"),piloto_conf.pulsesXrev, piloto_conf.pWidth);
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[TRUE,%04d,%02d]"),piloto_conf.pulsesXrev, piloto_conf.pWidth);
     } else {
-        j += sprintf_P( (char *)&hash_buffer[j], PSTR("[FALSE,%04d,%02d]"),piloto_conf.pulsesXrev, piloto_conf.pWidth);
+        j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[FALSE,%04d,%02d]"),piloto_conf.pulsesXrev, piloto_conf.pWidth);
     }
-    p = (char *)hash_buffer;
+    p = (char *)l_hash_buffer;
     while (*p != '\0') {
         hash = u_hash(hash, *p++);
     }
-    xprintf_P(PSTR("HASH_PILOTO:%s, hash=%d\r\n"), hash_buffer, hash ); 
+    //xprintf_P(PSTR("HASH_PILOTO:%s, hash=%d\r\n"), l_hash_buffer, hash ); 
 
     for(i=0; i < MAX_PILOTO_PSLOTS; i++) {
-        memset(hash_buffer, '\0', sizeof(hash_buffer) );
-        sprintf_P( (char *)&hash_buffer, PSTR("[S%02d:%04d,%0.2f]"), i, piloto_conf.pltSlots[i].pTime, piloto_conf.pltSlots[i].presion );
-        p = (char *)hash_buffer;
+        memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
+        sprintf_P( (char *)&l_hash_buffer, PSTR("[S%02d:%04d,%0.2f]"), i, piloto_conf.pltSlots[i].pTime, piloto_conf.pltSlots[i].presion );
+        p = (char *)l_hash_buffer;
         while (*p != '\0') {
             hash = u_hash(hash, *p++);
         }
-        xprintf_P(PSTR("HASH_PILOTO:%s, hash=%d\r\n"), hash_buffer, hash ); 
+        //xprintf_P(PSTR("HASH_PILOTO:%s, hash=%d\r\n"), l_hash_buffer, hash ); 
     }
 
     return(hash);

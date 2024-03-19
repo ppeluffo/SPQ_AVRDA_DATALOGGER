@@ -91,7 +91,7 @@ extern "C" {
 #include "piloto.h"
 
 #define FW_REV "0.0.1"
-#define FW_DATE "@ 20240317"
+#define FW_DATE "@ 20240319"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
 #define FW_TYPE "SPQ"
@@ -108,7 +108,7 @@ extern "C" {
 
 #define tkCtl_STACK_SIZE		384
 #define tkCmd_STACK_SIZE		512
-#define tkSys_STACK_SIZE		384
+#define tkSys_STACK_SIZE		512
 #define tkWanRX_STACK_SIZE		384
 #define tkWan_STACK_SIZE		512
 #define tkRS485RX_STACK_SIZE	384
@@ -137,6 +137,10 @@ StackType_t tkCtlPresion_Buffer [tkCtlPresion_STACK_SIZE];
 
 SemaphoreHandle_t sem_SYSVars;
 StaticSemaphore_t SYSVARS_xMutexBuffer;
+
+SemaphoreHandle_t sem_XCOMMS;
+StaticSemaphore_t XCOMMS_xMutexBuffer;
+
 #define MSTOTAKESYSVARSSEMPH ((  TickType_t ) 10 )
 
 TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkWanRX, xHandle_tkWan, xHandle_tkRS485RX, xHandle_tkCtlPresion;
@@ -223,13 +227,16 @@ void SYSTEM_ENTER_CRITICAL(void);
 void SYSTEM_EXIT_CRITICAL(void);
 void u_data_resync_clock( char *str_time, bool force_adjust);
 void u_reset_memory_remote(void);
-uint8_t u_confbase_hash(void);
+uint8_t u_confbase_hash( void );
 bool u_config_debug( char *tipo, char *valor);
 void u_print_tasks_running(void);
 void u_kick_wdt( uint8_t wdg_gc);
 uint8_t u_hash(uint8_t seed, char ch );
 uint16_t u_hhmm_to_mins(uint16_t hhmm);
 void u_check_stacks_usage(void);
+void XCOMMS_ENTER_CRITICAL(void);
+void XCOMMS_EXIT_CRITICAL(void);
+
 
 bool WAN_process_data_rcd( dataRcd_s *dataRcd);
 void WAN_print_configuration(void);
@@ -246,7 +253,8 @@ uint8_t task_running;
 #define SYS_WDG_bp     0x02
 #define WAN_WDG_bp     0x04
 #define WANRX_WDG_bp   0x08
-#define CTLPRES_WDG_bp  0x10
+#define RS485RX_WDG_bp  0x10
+#define CTLPRES_WDG_bp  0x20
 
 #define CMD_WDG_gc          (0x01 << 0)
 #define SYS_WDG_gc          (0x01 << 1)
