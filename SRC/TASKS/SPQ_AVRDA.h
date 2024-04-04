@@ -91,7 +91,7 @@ extern "C" {
 #include "piloto.h"
 
 #define FW_REV "0.0.1"
-#define FW_DATE "@ 20240319"
+#define FW_DATE "@ 20240320"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
 #define FW_TYPE "SPQ"
@@ -234,6 +234,8 @@ void u_kick_wdt( uint8_t wdg_gc);
 uint8_t u_hash(uint8_t seed, char ch );
 uint16_t u_hhmm_to_mins(uint16_t hhmm);
 void u_check_stacks_usage(void);
+uint32_t u_get_sleep_time(bool debug);
+
 void XCOMMS_ENTER_CRITICAL(void);
 void XCOMMS_EXIT_CRITICAL(void);
 

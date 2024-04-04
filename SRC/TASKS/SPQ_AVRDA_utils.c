@@ -395,7 +395,10 @@ uint16_t raw;
 bool retS = false;
 counter_value_t cnt;
 
-    // Canales analogicos:
+    // PWR ON:
+    // Siempre prendo: si esta prendido no importa, no hace nada
+    SET_EN_PWR_QMBUS();
+    
     ainputs_prender_sensores();
     
     for ( channel = 0; channel < NRO_ANALOG_CHANNELS; channel++) {
@@ -421,9 +424,19 @@ counter_value_t cnt;
         }      
     }
     
-    // Modbus 
+    // Modbus
+    if ( ! systemConf.ptr_modbus_conf->enabled ) { 
+        //modbus_read ( dataRcd->modbus );  
+        
+        // Solo apago si estoy en modo discreto
+        if ( u_get_sleep_time(true) > 0 ){
+            // Espero 10s que se apliquen las consignas y apago el modulo
+            vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+            CLEAR_EN_PWR_QMBUS(); 
+        }
+    }
     
-    modbus_read ( dataRcd->modbus );
+    
     
     // Bateria
     dataRcd->bt3v3 = u_read_bat3v3(false);
@@ -484,9 +497,11 @@ uint8_t i;
     }
       
     // Canales Modbus:
-    for ( i=0; i < NRO_MODBUS_CHANNELS; i++) {
-        if ( systemConf.ptr_modbus_conf->mbch[i].enabled ) {
-            xprintf_P( PSTR("%s=%0.2f;"), systemConf.ptr_modbus_conf->mbch[i].name, dr->modbus[i]);
+    if ( ! systemConf.ptr_modbus_conf->enabled ) { 
+        for ( i=0; i < NRO_MODBUS_CHANNELS; i++) {
+            if ( systemConf.ptr_modbus_conf->mbch[i].enabled ) {
+                xprintf_P( PSTR("%s=%0.2f;"), systemConf.ptr_modbus_conf->mbch[i].name, dr->modbus[i]);
+            }
         }
     }
     
@@ -796,5 +811,111 @@ uint16_t uxHighWaterMark;
     uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkCtlPresion );
     xprintf_P(PSTR("tkCtlPresion stack = %d\r\n"), uxHighWaterMark );
     
+}
+//------------------------------------------------------------------------------
+uint32_t u_get_sleep_time(bool debug)
+{
+    /*
+     * De acuerdo al pwrmodo determina cuanto debe estar 
+     * apagado en segundos.
+     * 
+     */
+    
+RtcTimeType_t rtc;
+uint16_t now;
+uint16_t pwr_on;
+uint16_t pwr_off;
+uint32_t waiting_secs;
+
+    switch(systemConf.ptr_base_conf->pwr_modo) {
+        case PWR_CONTINUO:
+            if (debug) {
+                xprintf_P(PSTR("SLEEP_TIME: pwr_continuo\r\n"));
+            }
+            waiting_secs = 0;
+            break;
+        case PWR_DISCRETO:
+            if (debug) {
+                xprintf_P(PSTR("SLEEP_TIME: pwr_discreto\r\n"));
+            }
+            waiting_secs = systemConf.ptr_base_conf->timerdial; 
+            break;
+        case PWR_MIXTO:
+            // Hay que ver en que intervalo del modo mixto estoy
+            RTC_read_dtime(&rtc);
+            now = rtc.hour * 100 + rtc.min;
+            pwr_on = systemConf.ptr_base_conf->pwr_hhmm_on;
+            pwr_off = systemConf.ptr_base_conf->pwr_hhmm_off;
+            if (debug) {
+                xprintf_P(PSTR("SLEEP_TIME A: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
+            }
+            now = u_hhmm_to_mins(now);
+            pwr_on = u_hhmm_to_mins( pwr_on );
+            pwr_off = u_hhmm_to_mins( pwr_off );
+            if (debug) {
+                xprintf_P(PSTR("SLEEP_TIME B: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
+            }
+                    
+            if ( pwr_on < pwr_off) {
+                // Caso A:
+                // |----apagado-----|----continuo----|---apagado---|
+                // 0     (A)      pwr_on   (B)    pwr_off  (C)   2400
+                //
+                if ( now < pwr_on ) {
+                    // Estoy en A:mixto->apagado
+                    if (debug) {
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_A\r\n"));
+                    }                    
+                    waiting_secs = (pwr_on - now)*60;
+                } else if ( now < pwr_off) {
+                    // Estoy en B:mixto->continuo
+                    if (debug) { 
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_B\r\n"));
+                    }
+                    waiting_secs = 0;
+                } else {
+                    // Estoy en C:mixto->apagado
+                    if (debug) {
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_C\r\n"));
+                    }
+                    waiting_secs = (1440 - now + pwr_on)*60;
+                }
+            
+            } else {
+                // Caso B:
+                // |----continuo-----|----apagado----|---continuo---|
+                // 0     (D)      pwr_off   (E)    pwr_on  (F)    2400
+                //
+                if ( now < pwr_off) {
+                    // Estoy en D: mixto->continuo
+                    if (debug) {
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_D\r\n"));
+                    }
+                    waiting_secs = 0;
+                } else if (now < pwr_on) {
+                    // Estoy en E: mixto->apagado
+                    if (debug) {
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_E\r\n"));
+                    }
+                    waiting_secs = (pwr_on - now)*60;
+                } else {
+                    // Estoy en F:mixto->prendido
+                    if (debug) {
+                        xprintf_P(PSTR("SLEEP_TIME: pwr_mixto_F\r\n"));
+                    }
+                    waiting_secs = 0;
+                }
+            } 
+            break;
+        default:
+            // En default, dormimos 30 minutos
+            waiting_secs = 1800;
+            break;
+    }
+    
+    if (debug) {
+        xprintf_P(PSTR("SLEEP_TIME: waiting_ticks=%lu secs\r\n"), waiting_secs);
+    }
+    return(waiting_secs);
 }
 //------------------------------------------------------------------------------

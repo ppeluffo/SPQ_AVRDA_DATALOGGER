@@ -84,6 +84,24 @@ static void cmdTestFunction(void)
 
     FRTOS_CMD_makeArgv();
 
+    // RS485
+    if (!strcmp_P( strupr(argv[1]), PSTR("RS485"))  ) {
+        if (!strcmp_P( strupr(argv[2]), PSTR("WRITE"))  ) {
+            SET_RTS_RS485();
+            vTaskDelay( ( TickType_t)( 5 ) );   
+            xfprintf_P( fdRS485, PSTR("The quick brown fox jumps over the lazy dog \r\n"));
+            vTaskDelay( ( TickType_t)( 2 ) );
+            // RTS OFF: Habilita la recepcion del chip
+            CLEAR_RTS_RS485();
+            pv_snprintfP_OK();
+            return;
+        }
+        
+        pv_snprintfP_ERR();
+        return;  
+    }
+
+        
     // PILOTO
     // test piloto {pres}
 	if ( !strcmp_P( strupr(argv[1]), PSTR("PILOTO"))  ) {
@@ -95,6 +113,7 @@ static void cmdTestFunction(void)
 	// modbus genpoll {type(F|I} sla fcode addr length }\r\n\0"));
 	//        chpoll {ch}\r\n\0"));
 	if ( !strcmp_P( strupr(argv[1]), PSTR("MODBUS")) ) {
+        xprintf_P(PSTR("TEST MODBUS\r\n"));
 		test_modbus() ? pv_snprintfP_OK() : pv_snprintfP_ERR();
 		return;
 	}  
@@ -109,17 +128,29 @@ static void cmdTestFunction(void)
     // test consigna {diurna|nocturna}
     if (!strcmp_P( strupr(argv[1]), PSTR("CONSIGNA"))  ) {
         if (!strcmp_P( strupr(argv[2]), PSTR("DIURNA"))  ) {
+            SET_EN_PWR_CPRES();
+            vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+        
             XCOMMS_ENTER_CRITICAL();
             consigna_set_diurna();
             XCOMMS_EXIT_CRITICAL();
+       
+            vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
+            CLEAR_EN_PWR_CPRES(); 
             pv_snprintfP_OK();
             return;
         }
         
         if (!strcmp_P( strupr(argv[2]), PSTR("NOCTURNA"))  ) {
+            SET_EN_PWR_CPRES();
+            vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+            
             XCOMMS_ENTER_CRITICAL();
             consigna_set_nocturna();
             XCOMMS_EXIT_CRITICAL();
+            
+            vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
+            CLEAR_EN_PWR_CPRES(); 
             pv_snprintfP_OK();
             return;
         }
@@ -497,6 +528,7 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("      {on|off}\r\n"));
         xprintf_P( PSTR("      link\r\n"));
         xprintf_P( PSTR("  piloto {pres}\r\n"));
+        xprintf_P( PSTR("  rs485 write\r\n"));
         return;
         
     }  else {
@@ -933,18 +965,29 @@ static bool test_valve( char *action)
 //------------------------------------------------------------------------------
 static bool test_modbus(void)
 {
+   
+bool retS = false;
+    
+    SET_EN_PWR_QMBUS();
     
 	// modbus genpoll {type(F|I} sla fcode addr nro_recds
-	if ( strcmp_P( strupr(argv[2]), PSTR("GENPOLL")) ) {
-		return ( MODBUS_test_genpoll(argv) );
+	if ( ! strcmp_P( strupr(argv[2]), PSTR("GENPOLL")) ) {
+        xprintf_P(PSTR("DEBUG MODBUS\r\n"));
+		retS = MODBUS_test_genpoll(argv);
+        goto exit;
 	}
     
     // modbus chpoll {ch}
-	if ( strcmp_P( strupr(argv[2]), PSTR("CHPOLL")) == 0 ) {
-		return (MODBUS_test_channel(atoi(argv[3]) ));
+	if ( ! strcmp_P( strupr(argv[2]), PSTR("CHPOLL")) == 0 ) {
+		retS = MODBUS_test_channel(atoi(argv[3]) );
+        goto exit;
 	}
 
-	return(false);
+exit:
+            
+    vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+    CLEAR_EN_PWR_QMBUS();
+    return (retS);
 
 }
 //------------------------------------------------------------------------------

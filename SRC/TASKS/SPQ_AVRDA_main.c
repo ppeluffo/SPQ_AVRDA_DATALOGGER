@@ -135,6 +135,7 @@ int main(void) {
     
     frtos_open(fdTERM, 115200 );
     frtos_open(fdWAN, 9600 );
+    frtos_open(fdRS485, 9600 );
     frtos_open(fdI2C1, 100 );
     frtos_open(fdNVM, 0 );
     

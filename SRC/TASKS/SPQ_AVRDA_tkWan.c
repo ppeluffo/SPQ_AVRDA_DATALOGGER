@@ -56,7 +56,6 @@ static bool wan_process_frame_data(dataRcd_s *dr);
 static void wan_load_dr_in_txbuffer(dataRcd_s *dr, uint8_t *buff, uint16_t buffer_size );
 
 static bool wan_process_rsp_data(void);
-static uint32_t wan_get_sleep_time(void);
 
 bool wan_process_from_dump(char *buff, bool ultimo );
 
@@ -200,7 +199,7 @@ uint32_t waiting_secs;
     }
     
     // Veo cuanto esperar con el modem apagado.
-    waiting_secs = wan_get_sleep_time();
+    waiting_secs = u_get_sleep_time(f_debug_comms);
     
     // Modo continuo
     if ( waiting_secs == 0 ) {
@@ -367,13 +366,13 @@ bool res;
     wan_send_from_memory();  
     // 
     // En modo discreto, apago y salgo
-    if ( wan_get_sleep_time() > 0 ) {
+    if ( u_get_sleep_time(f_debug_comms) > 0 ) {
        wan_state = WAN_APAGADO;
        goto quit;
     }
     
     // En modo continuo me quedo esperando por datos para transmitir. 
-    while( wan_get_sleep_time() == 0 ) {
+    while( u_get_sleep_time(f_debug_comms) == 0 ) {
                       
         if ( drWanBuffer.dr_ready ) {
             // Hay datos para transmitir
@@ -399,112 +398,6 @@ quit:
     
     link_up4data = false;
     return;        
-}
-//------------------------------------------------------------------------------
-static uint32_t wan_get_sleep_time(void)
-{
-    /*
-     * De acuerdo al pwrmodo determina cuanto debe estar 
-     * apagado en segundos.
-     * 
-     */
-    
-RtcTimeType_t rtc;
-uint16_t now;
-uint16_t pwr_on;
-uint16_t pwr_off;
-uint32_t waiting_secs;
-
-    switch(systemConf.ptr_base_conf->pwr_modo) {
-        case PWR_CONTINUO:
-            if (f_debug_comms) {
-                xprintf_P(PSTR("WAN:: DEBUG: pwr_continuo\r\n"));
-            }
-            waiting_secs = 0;
-            break;
-        case PWR_DISCRETO:
-            if (f_debug_comms) {
-                xprintf_P(PSTR("WAN:: DEBUG: pwr_discreto\r\n"));
-            }
-            waiting_secs = systemConf.ptr_base_conf->timerdial; 
-            break;
-        case PWR_MIXTO:
-            // Hay que ver en que intervalo del modo mixto estoy
-            RTC_read_dtime(&rtc);
-            now = rtc.hour * 100 + rtc.min;
-            pwr_on = systemConf.ptr_base_conf->pwr_hhmm_on;
-            pwr_off = systemConf.ptr_base_conf->pwr_hhmm_off;
-            if (f_debug_comms) {
-                xprintf_P(PSTR("WAN:: DEBUG sleepTime A: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
-            }
-            now = u_hhmm_to_mins(now);
-            pwr_on = u_hhmm_to_mins( pwr_on );
-            pwr_off = u_hhmm_to_mins( pwr_off );
-            if (f_debug_comms) {
-                xprintf_P(PSTR("WAN:: DEBUG sleepTime B: now=%d, pwr_on=%d, pwr_off=%d\r\n"), now, pwr_on,pwr_off);
-            }
-                    
-            if ( pwr_on < pwr_off) {
-                // Caso A:
-                // |----apagado-----|----continuo----|---apagado---|
-                // 0     (A)      pwr_on   (B)    pwr_off  (C)   2400
-                //
-                if ( now < pwr_on ) {
-                    // Estoy en A:mixto->apagado
-                    if (f_debug_comms) {
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_A\r\n"));
-                    }                    
-                    waiting_secs = (pwr_on - now)*60;
-                } else if ( now < pwr_off) {
-                    // Estoy en B:mixto->continuo
-                    if (f_debug_comms) { 
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_B\r\n"));
-                    }
-                    waiting_secs = 0;
-                } else {
-                    // Estoy en C:mixto->apagado
-                    if (f_debug_comms) {
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_C\r\n"));
-                    }
-                    waiting_secs = (1440 - now + pwr_on)*60;
-                }
-            
-            } else {
-                // Caso B:
-                // |----continuo-----|----apagado----|---continuo---|
-                // 0     (D)      pwr_off   (E)    pwr_on  (F)    2400
-                //
-                if ( now < pwr_off) {
-                    // Estoy en D: mixto->continuo
-                    if (f_debug_comms) {
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_D\r\n"));
-                    }
-                    waiting_secs = 0;
-                } else if (now < pwr_on) {
-                    // Estoy en E: mixto->apagado
-                    if (f_debug_comms) {
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_E\r\n"));
-                    }
-                    waiting_secs = (pwr_on - now)*60;
-                } else {
-                    // Estoy en F:mixto->prendido
-                    if (f_debug_comms) {
-                        xprintf_P(PSTR("WAN:: DEBUG: pwr_mixto_F\r\n"));
-                    }
-                    waiting_secs = 0;
-                }
-            } 
-            break;
-        default:
-            // En default, dormimos 30 minutos
-            waiting_secs = 1800;
-            break;
-    }
-    
-    if (f_debug_comms) {
-        xprintf_P(PSTR("WAN:: DEBUG: waiting_ticks=%lu secs\r\n"), waiting_secs);
-    }
-    return(waiting_secs);
 }
 //------------------------------------------------------------------------------
 static bool wan_process_frame_ping(void)

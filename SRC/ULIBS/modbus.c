@@ -2,6 +2,12 @@
 #include "modbus.h"
 #include "math.h"
 
+/*
+ * Para probar un SHINCO, y leer el total_accumulated_flow
+ * usamos el comando:
+ * test modbus genpoll 8 4118 2 3 u32 c3210
+ 
+ */
 static bool f_debug_modbus;
 
 uint16_t pv_modbus_CRC16( uint8_t *msg, uint8_t msg_size );

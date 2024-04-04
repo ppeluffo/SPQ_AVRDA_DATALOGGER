@@ -68,6 +68,8 @@ uint16_t now;
 uint16_t c_dia;
 uint16_t c_noche;
 
+    // Al arrancar prendemos el modulo de control de presion.
+    SET_EN_PWR_CPRES();
     vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
     
     RTC_read_dtime(&rtc);
@@ -87,7 +89,7 @@ uint16_t c_noche;
         XCOMMS_ENTER_CRITICAL();
 		consigna_set_nocturna();
         XCOMMS_EXIT_CRITICAL();
-		
+        goto exit;
 		return;
     }
     
@@ -97,27 +99,37 @@ uint16_t c_noche;
         XCOMMS_ENTER_CRITICAL();
 		consigna_set_nocturna();
         XCOMMS_EXIT_CRITICAL();
-		return;        
+        goto exit;
+		return;  
+        
     } else {
         // Aplico consigna diurna
          xprintf_P(PSTR("CONSIGNA Init:diurna %04d\r\n"),now);
         XCOMMS_ENTER_CRITICAL();
 		consigna_set_diurna();
         XCOMMS_EXIT_CRITICAL();
+        goto exit;
 		return;
     }
     
-    
-    
+exit:
+
+    // Espero 10s que se apliquen las consignas y apago el modulo
+    // Solo apago si estoy en modo discreto
+    if ( u_get_sleep_time(true) > 0 ){
+        // Espero 10s que se apliquen las consignas y apago el modulo
+        vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
+        CLEAR_EN_PWR_CPRES(); 
+    }
+  
 }
 //------------------------------------------------------------------------------
-
 void CONSIGNA_service(void)
 {
  
 RtcTimeType_t rtcDateTime;
 uint16_t now;
-
+         
 	// Chequeo y aplico.
 	// Las consignas se chequean y/o setean en cualquier modo de trabajo, continuo o discreto
 	memset( &rtcDateTime, '\0', sizeof(RtcTimeType_t));
@@ -130,19 +142,42 @@ uint16_t now;
     
 	// Consigna diurna ?
 	if ( now == consigna_conf.consigna_diurna  ) {
+        
+        // Siempre prendo: Si esta prendido no pasa nada
+        SET_EN_PWR_CPRES();
+        vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+            
         XCOMMS_ENTER_CRITICAL();
 		consigna_set_diurna();
         XCOMMS_EXIT_CRITICAL();
 		xprintf_P(PSTR("Set CONSIGNA diurna %04d\r\n"), now );
+        
+        // Solo apago si estoy en modo discreto
+        if ( u_get_sleep_time(true) > 0 ){
+            // Espero 10s que se apliquen las consignas y apago el modulo
+            vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
+            CLEAR_EN_PWR_CPRES(); 
+        }  
 		return;
 	}
 
 	// Consigna nocturna ?
 	if ( now == consigna_conf.consigna_nocturna  ) {
+        
+        SET_EN_PWR_CPRES();
+        vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
+        
         XCOMMS_ENTER_CRITICAL();
 		consigna_set_nocturna();
         XCOMMS_EXIT_CRITICAL();
 		xprintf_P(PSTR("Set CONSIGNA nocturna %04d\r\n"),now);
+        
+        // Solo apago si estoy en modo discreto
+        if ( u_get_sleep_time(true) > 0 ){
+            // Espero 10s que se apliquen las consignas y apago el modulo
+            vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
+            CLEAR_EN_PWR_CPRES(); 
+        }
 		return;
 	}
     
