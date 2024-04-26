@@ -82,7 +82,8 @@ bool retS = false;
         }
         
         //snprintf_P( ain->channel[ch].name, AIN_PARAMNAME_LENGTH, PSTR("%s"), s_aname );
-        strncpy( ainputs_conf.channel[ch].name, s_aname, AIN_PARAMNAME_LENGTH );
+        //strncpy( ainputs_conf.channel[ch].name, s_aname, AIN_PARAMNAME_LENGTH );
+        strlcpy( ainputs_conf.channel[ch].name, s_aname, AIN_PARAMNAME_LENGTH );
 
 		if ( s_imin != NULL ) {
 			ainputs_conf.channel[ch].imin = atoi(s_imin);
@@ -130,7 +131,8 @@ uint8_t i = 0;
 		ainputs_conf.channel[i].mmax = 10.0;
 		ainputs_conf.channel[i].offset = 0.0;
 		//snprintf_P( ainputs_conf.channel[i].name, AIN_PARAMNAME_LENGTH, PSTR("X") );
-        strncpy( ainputs_conf.channel[i].name, "X", AIN_PARAMNAME_LENGTH );
+        //strncpy( ainputs_conf.channel[i].name, "X", AIN_PARAMNAME_LENGTH );
+        strlcpy( ainputs_conf.channel[i].name, "X", AIN_PARAMNAME_LENGTH );
 	}
 
     AINPUTS_EXIT_CRITICAL();
@@ -392,7 +394,7 @@ char *p;
     // Calculo el hash de la configuracion de las ainputs
     for(i=0; i<NRO_ANALOG_CHANNELS; i++) {
         
-        memset(l_hash_buffer, '\0',sizeof(l_hash_buffer) );
+        memset(l_hash_buffer, '\0', sizeof(l_hash_buffer) );
         j = 0;
         if ( ainputs_conf.channel[i].enabled ) {
             j += sprintf_P( (char *)&l_hash_buffer[j], PSTR("[A%d:TRUE,"), i );

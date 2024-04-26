@@ -18,7 +18,8 @@ extern "C" {
 #include "frtos-io.h"
 #include "xprintf.h"
 #include "string.h"
-    
+#include "xgetc.h"
+#include "ctype.h"
 //--------------------------------------------------------------------------
 // PUSR WH-LTE-7S1
 
@@ -67,25 +68,46 @@ extern "C" {
 #define SET_LTE_RESET()        ( LTE_RESET_PORT.OUT &= ~LTE_RESET_PIN_bm )
 #define CONFIG_LTE_RESET()     LTE_RESET_PORT.DIR |= LTE_RESET_PIN_bm;
 
-#define LTE_BUFFER_SIZE 255
+#define MODEM_RX_BUFFER_SIZE 512
+char modem_rx_buffer[MODEM_RX_BUFFER_SIZE];
+lBuffer_s modem_rx_lbuffer;
 
+#define WAN_TX_BUFFER_SIZE 255
+char wan_tx_buffer[WAN_TX_BUFFER_SIZE];
+
+#define LTE_BUFFER_SIZE 255
 char lte_buffer[LTE_BUFFER_SIZE];
 lBuffer_s lte_lbuffer;
 
-
 void LTE_process_buffer( char c);
-
 
 typedef enum { LTE_PWR_OFF=0, LTE_PWR_ON} t_lte_pwr_status;
     
-void LTE_init(void);
-void LTE_prender(void);
-void LTE_apagar(void);
 t_lte_pwr_status LTE_get_pwr_status(void);
 char *LTE_buffer_ptr(void);
 void LTE_flush_buffer(void);
 void lte_test_link(void);
 
+void MODEM_init(void);
+void MODEM_prender(void);
+void MODEM_apagar(void);
+int MODEM_txmit( char *tx_buffer[] );
+char *MODEM_get_buffer_ptr(void);
+void MODEM_flush_rx_buffer(void);
+
+bool MODEM_enter_mode_at(bool verbose);
+void MODEM_exit_mode_at(bool verbose);
+void MODEM_query_parameters(void);
+void MODEM_read_id(void);
+void MODEM_set_apn( char *apn);
+void MODEM_set_server( char *ip, char *port);
+void MODEM_set_apiurl( char *apiurl);
+void MODEM_read_iccid(bool verbose);
+void MODEM_read_imei(bool verbose);
+void MODEM_read_csq(bool verbose);
+char *MODEM_get_iccid(void);
+char *MODEM_get_imei(void);
+uint8_t MODEM_get_csq(void);
 
 #ifdef	__cplusplus
 }

@@ -38,7 +38,7 @@ void system_init()
     XPRINTF_init();
     VALVE_init(); 
     ADC_init();
-    LTE_init();
+    MODEM_init();
     I2C_init();
     
     CONFIG_EN_PWR_CPRES();
@@ -50,9 +50,7 @@ void system_init()
     CONFIG_EN_SENS3V3();
     CONFIG_EN_SENS12V();
     CONFIG_PWR_SENSORS();
-    
-    
-     
+         
 }
 //-----------------------------------------------------------------------------
 int8_t WDT_init(void)
@@ -67,7 +65,8 @@ int8_t CLKCTRL_init(void)
 {
 	// Configuro el clock para 24Mhz
 	
-	ccp_write_io((void *)&(CLKCTRL.OSCHFCTRLA), CLKCTRL_FREQSEL_24M_gc         /* 24 */
+	ccp_write_io((void *)&(CLKCTRL.OSCHFCTRLA), CLKCTRL_FRQSEL_24M_gc         /* 24 */
+                                                
 	| 0 << CLKCTRL_AUTOTUNE_bp /* Auto-Tune enable: disabled */
 	| 0 << CLKCTRL_RUNSTDBY_bp /* Run standby: disabled */);
 
@@ -603,7 +602,7 @@ void u_reset_memory_remote(void)
      */
           
     vTaskSuspend( xHandle_tkSys );
-    vTaskSuspend( xHandle_tkWanRX );
+    vTaskSuspend( xHandle_tkModemRX );
     vTaskSuspend( xHandle_tkWan );
     vTaskSuspend( xHandle_tkRS485RX );
         
@@ -754,8 +753,8 @@ void u_print_tasks_running(void)
         xprintf_P(PSTR(" wan"));
     }
     
-    if ( (task_running & WANRX_WDG_gc ) != 0 ) {
-        xprintf_P(PSTR(" wanrx"));
+    if ( (task_running & MODEMRX_WDG_gc ) != 0 ) {
+        xprintf_P(PSTR(" modemrx"));
     }
 
     if ( (task_running & RS485RX_WDG_gc ) != 0 ) {
@@ -799,8 +798,8 @@ uint16_t uxHighWaterMark;
     uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkSys );
     xprintf_P(PSTR("tkSYS stack = %d\r\n"), uxHighWaterMark );
     
-    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkWanRX );
-    xprintf_P(PSTR("tkWANrx stack = %d\r\n"), uxHighWaterMark );
+    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkModemRX );
+    xprintf_P(PSTR("tkMODEMrx stack = %d\r\n"), uxHighWaterMark );
     
     uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( xHandle_tkWan );
     xprintf_P(PSTR("tkWAN stack = %d\r\n"), uxHighWaterMark );

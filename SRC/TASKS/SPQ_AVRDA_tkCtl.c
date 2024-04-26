@@ -69,6 +69,8 @@ fat_s l_fat;
     // Por ultimo habilito a todas las otras tareas a arrancar
     starting_flag = true;
     
+    VALVE_open();
+    
 	for( ;; )
 	{
         // Duerme 5 secs y corre.

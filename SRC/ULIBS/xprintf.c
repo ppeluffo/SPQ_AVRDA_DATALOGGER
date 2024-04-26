@@ -168,7 +168,8 @@ int i = 0;
 		vTaskDelay( ( TickType_t)( 5 ) );
 
 	memset(stdout_buff,'\0',PRINTF_BUFFER_SIZE);
-    strncpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
+    //strncpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
+    strlcpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
     i = frtos_write(fdTERM, (char *)stdout_buff, strlen((char *)stdout_buff) );
     
     xSemaphoreGive( sem_STDOUT );
@@ -190,7 +191,8 @@ int i = 0;
 		vTaskDelay( ( TickType_t)( 5 ) );
 
 	memset(stdout_buff,'\0',PRINTF_BUFFER_SIZE);
-    strncpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
+    //strncpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
+    strlcpy((char *)stdout_buff, str, PRINTF_BUFFER_SIZE );
     i = frtos_write(fd, (char *)stdout_buff, strlen((char *)stdout_buff) );
     
     xSemaphoreGive( sem_STDOUT );

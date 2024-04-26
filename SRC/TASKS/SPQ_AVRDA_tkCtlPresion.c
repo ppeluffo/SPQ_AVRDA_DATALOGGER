@@ -34,6 +34,9 @@ void tkCtlPresion(void * pvParameters)
 	vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
     xprintf_P(PSTR("Starting tkCtlPresion..\r\n"));
     
+    // Espero que todo este arrancado (30s)
+    vTaskDelay( ( TickType_t)( 30000 / portTICK_PERIOD_MS ) );
+    
     if ( systemConf.ptr_consigna_conf->enabled ) {
         CONSIGNA_initService();
     }
@@ -116,7 +119,7 @@ exit:
 
     // Espero 10s que se apliquen las consignas y apago el modulo
     // Solo apago si estoy en modo discreto
-    if ( u_get_sleep_time(true) > 0 ){
+    if ( u_get_sleep_time(false) > 0 ){
         // Espero 10s que se apliquen las consignas y apago el modulo
         vTaskDelay( ( TickType_t)( 10000 / portTICK_PERIOD_MS ) );
         CLEAR_EN_PWR_CPRES(); 

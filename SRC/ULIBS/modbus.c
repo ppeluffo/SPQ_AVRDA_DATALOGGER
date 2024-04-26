@@ -91,7 +91,8 @@ uint8_t i;
     modbus_conf.localaddr = 0x01;
 	for ( i = 0; i < NRO_MODBUS_CHANNELS; i++ ) {
         modbus_conf.mbch[i].enabled = false;
-        strncpy( modbus_conf.mbch[i].name, "X", MODBUS_PARAMNAME_LENGTH);
+        //strncpy( modbus_conf.mbch[i].name, "X", MODBUS_PARAMNAME_LENGTH);
+        strlcpy( modbus_conf.mbch[i].name, "X", MODBUS_PARAMNAME_LENGTH);
 		modbus_conf.mbch[i].slave_address = 0;
 		modbus_conf.mbch[i].reg_address = 0;
         modbus_conf.mbch[i].nro_regs = 1;
@@ -242,7 +243,8 @@ bool retS = false;
             modbus_conf.mbch[ch].enabled = false;
         }
         
-		strncpy( modbus_conf.mbch[ch].name, s_name, MODBUS_PARAMNAME_LENGTH );
+		//strncpy( modbus_conf.mbch[ch].name, s_name, MODBUS_PARAMNAME_LENGTH );
+        strlcpy( modbus_conf.mbch[ch].name, s_name, MODBUS_PARAMNAME_LENGTH );
         //xprintf_P(PSTR("MBDEBUG: name=%s\r\n"), modbus_conf->mbch[channel].name );
                 
         if ( s_sla != NULL ) {

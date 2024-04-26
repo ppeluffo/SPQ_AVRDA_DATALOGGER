@@ -110,8 +110,9 @@ int16_t INA_read( uint16_t rdAddress, char *data, uint8_t length, bool debug )
 
 int16_t rcode = 0;
 
-    if (debug)
+    if (debug) {
         xprintf_P(PSTR("INA_read.\r\n"));
+    }
 
 	rcode =  I2C_read( fdI2C1, DEVADDRESS_INA, rdAddress, 0x01, data, length, debug );
 	if ( rcode == -1 ) {
@@ -134,8 +135,9 @@ int16_t INA_write( uint16_t wrAddress, char *data, uint8_t length, bool debug )
 
 int16_t rcode = 0;
 
-    if (debug)
+    if (debug) {
         xprintf_P(PSTR("INA_write.\r\n"));
+    }
 
  	rcode =  I2C_write ( fdI2C1, DEVADDRESS_INA, wrAddress, 0x01, data, length, debug );
 	if ( rcode == -1 ) {

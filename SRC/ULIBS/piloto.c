@@ -101,10 +101,11 @@ float l_presion_consigna;
     //    xprintf_P( PSTR("PILOTO CONS: start.\r\n"));
     }
  
-    while ( xSemaphoreTake( sem_Piloto, ( TickType_t ) 5 ) != pdTRUE )
+    while ( xSemaphoreTake( sem_Piloto, ( TickType_t ) 5 ) != pdTRUE ) {
         vTaskDelay( ( TickType_t)( 1 ) );
+    }
     
-        l_presion_consigna = presion_consigna;
+    l_presion_consigna = presion_consigna;
   
     xSemaphoreGive( sem_Piloto );
     

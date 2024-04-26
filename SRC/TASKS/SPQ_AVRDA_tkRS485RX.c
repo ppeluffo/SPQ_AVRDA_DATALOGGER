@@ -46,7 +46,7 @@ uint8_t c = 0;
 	// loop
 	for( ;; )
 	{
-        u_kick_wdt(WANRX_WDG_bp);
+        u_kick_wdt(RS485RX_WDG_bp);
          
 		c = '\0';	// Lo borro para que luego del un CR no resetee siempre el timer.
 		// el read se bloquea 50ms. lo que genera la espera.

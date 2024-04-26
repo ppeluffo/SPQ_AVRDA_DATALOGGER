@@ -823,8 +823,9 @@ int16_t frtos_write_i2c( volatile TWI_t *twi, periferico_i2c_port_t *xI2c, const
 
 int16_t xReturn = 0U;
 
-    if ( xI2c->debug_flag)
+    if ( xI2c->debug_flag) {
         xprintf_P(PSTR("frtos_write_i2c DEBUG ON\r\n"));
+    }
 
 	if ( ( xReturn = drv_I2C_master_write( twi, xI2c->devAddress, xI2c->dataAddress, xI2c->dataAddress_length, (char *)pvBuffer, xBytes, xI2c->debug_flag) ) > 0 ) {
 		xI2c->i2c_error_code = I2C_OK;

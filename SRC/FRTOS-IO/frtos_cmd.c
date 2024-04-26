@@ -142,12 +142,14 @@ void FRTOS_CMD_History( uint8_t action)
 		if( strlen(cmdLine_buffer) ) {
             // Salvo la linea de comando
             memset(cmdLine_History_buffer, '\0', MAX_INPUT_LENGTH );
-            strncpy(cmdLine_History_buffer, cmdLine_buffer, MAX_INPUT_LENGTH );
+            //strncpy(cmdLine_History_buffer, cmdLine_buffer, MAX_INPUT_LENGTH );
+            strlcpy(cmdLine_History_buffer, cmdLine_buffer, MAX_INPUT_LENGTH );
 		}
 		break;
 	case CMDLINE_HISTORY_PREV:
 		memset(cmdLine_buffer, '\0', MAX_INPUT_LENGTH );
-		strncpy( cmdLine_buffer, cmdLine_History_buffer, MAX_INPUT_LENGTH);
+		//strncpy( cmdLine_buffer, cmdLine_History_buffer, MAX_INPUT_LENGTH);
+        strlcpy( cmdLine_buffer, cmdLine_History_buffer, MAX_INPUT_LENGTH);
 		cmdLine_ptr = strlen(cmdLine_buffer);
 		xprintf( "%s", cmdLine_buffer );
         //puts( cmdLine_buffer );

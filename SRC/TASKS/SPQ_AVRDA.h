@@ -79,7 +79,7 @@ extern "C" {
 #include "linearBuffer.h"
 #include "fileSystem.h"
 #include "adc.h"
-#include "lte.h"
+#include "modem_lte.h"
 #include "i2c.h"
 #include "ina3221.h"
 #include "rtc79410.h"
@@ -89,27 +89,29 @@ extern "C" {
 #include "consignas.h"
 #include "modbus.h"
 #include "piloto.h"
+#include "modem_lte.h"
 
-#define FW_REV "0.0.1"
-#define FW_DATE "@ 20240320"
+
+#define FW_REV "1.2.3"
+#define FW_DATE "@ 20240426"
 #define HW_MODELO "SPQ_AVRDA FRTOS R001 HW:AVR128DA64"
 #define FRTOS_VERSION "FW:FreeRTOS V202111.00"
-#define FW_TYPE "SPQ"
+#define FW_TYPE "SPQ_AVRDA"
 
 #define SYSMAINCLK 24
 
 #define tkCtl_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 #define tkCmd_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 #define tkSys_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
-#define tkWanRX_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkModemRX_TASK_PRIORITY	( tskIDLE_PRIORITY + 1 )
 #define tkWan_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
-#define tkRS485RX_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
+#define tkRS485RX_TASK_PRIORITY ( tskIDLE_PRIORITY + 1 )
 #define tkCtlPresion_TASK_PRIORITY 	( tskIDLE_PRIORITY + 1 )
 
 #define tkCtl_STACK_SIZE		384
 #define tkCmd_STACK_SIZE		512
 #define tkSys_STACK_SIZE		512
-#define tkWanRX_STACK_SIZE		384
+#define tkModemRX_STACK_SIZE	384
 #define tkWan_STACK_SIZE		512
 #define tkRS485RX_STACK_SIZE	384
 #define tkCtlPresion_STACK_SIZE	384
@@ -123,8 +125,8 @@ StackType_t tkCmd_Buffer [tkCmd_STACK_SIZE];
 StaticTask_t tkSys_Buffer_Ptr;
 StackType_t tkSys_Buffer [tkSys_STACK_SIZE];
 
-StaticTask_t tkWanRX_Buffer_Ptr;
-StackType_t tkWanRX_Buffer [tkWanRX_STACK_SIZE];
+StaticTask_t tkModemRX_Buffer_Ptr;
+StackType_t tkModemRX_Buffer [tkModemRX_STACK_SIZE];
 
 StaticTask_t tkWan_Buffer_Ptr;
 StackType_t tkWan_Buffer [tkWan_STACK_SIZE];
@@ -143,12 +145,12 @@ StaticSemaphore_t XCOMMS_xMutexBuffer;
 
 #define MSTOTAKESYSVARSSEMPH ((  TickType_t ) 10 )
 
-TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkWanRX, xHandle_tkWan, xHandle_tkRS485RX, xHandle_tkCtlPresion;
+TaskHandle_t xHandle_tkCtl, xHandle_tkCmd, xHandle_tkSys, xHandle_tkModemRX, xHandle_tkWan, xHandle_tkRS485RX, xHandle_tkCtlPresion;
 
 void tkCtl(void * pvParameters);
 void tkCmd(void * pvParameters);
 void tkSys(void * pvParameters);
-void tkWanRX(void * pvParameters);
+void tkModemRX(void * pvParameters);
 void tkWan(void * pvParameters);
 void tkRS485RX(void * pvParameters);
 void tkCtlPresion(void *pvParameters);
@@ -254,14 +256,14 @@ uint8_t task_running;
 #define CMD_WDG_bp     0x01
 #define SYS_WDG_bp     0x02
 #define WAN_WDG_bp     0x04
-#define WANRX_WDG_bp   0x08
+#define MODEMRX_WDG_bp  0x08
 #define RS485RX_WDG_bp  0x10
 #define CTLPRES_WDG_bp  0x20
 
 #define CMD_WDG_gc          (0x01 << 0)
 #define SYS_WDG_gc          (0x01 << 1)
 #define WAN_WDG_gc          (0x01 << 2)
-#define WANRX_WDG_gc        (0x01 << 3)
+#define MODEMRX_WDG_gc      (0x01 << 3)
 #define RS485RX_WDG_gc      (0x01 << 4)
 #define CTLPRES_WDG_gc      (0x01 << 5)
 

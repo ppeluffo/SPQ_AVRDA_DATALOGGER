@@ -10,7 +10,12 @@
  * para ver como se inicializan y se manejan.
  * 
  * 
- *
+ * Version 1.2.1 @ 2024-04-10:
+ * - cambio las funciones strncpy por strlcpy
+ * - PENDIENTE: Controlar los SNPRINTF
+ * -----------------------------------------------------------------------------
+ * Version 1.2.0 @ 2024-04-08:
+ * Aumento el tamaño de los buffers en las funciones que hacen hash
  * -----------------------------------------------------------------------------
  * Version 1.1.0 @ 2023-11-15:
  * Modbus: El caudalimentro Shinco tiene s/n 77 entonces el id es 119 !!!
@@ -155,7 +160,7 @@ int main(void) {
     xHandle_tkCtl = xTaskCreateStatic( tkCtl, "CTL", tkCtl_STACK_SIZE, (void *)1, tkCtl_TASK_PRIORITY, tkCtl_Buffer, &tkCtl_Buffer_Ptr );
     xHandle_tkCmd = xTaskCreateStatic( tkCmd, "CMD", tkCmd_STACK_SIZE, (void *)1, tkCmd_TASK_PRIORITY, tkCmd_Buffer, &tkCmd_Buffer_Ptr );
     xHandle_tkSys = xTaskCreateStatic( tkSys, "SYS", tkSys_STACK_SIZE, (void *)1, tkSys_TASK_PRIORITY, tkSys_Buffer, &tkSys_Buffer_Ptr );
-    xHandle_tkWanRX = xTaskCreateStatic( tkWanRX, "WANRX", tkWanRX_STACK_SIZE, (void *)1, tkWanRX_TASK_PRIORITY, tkWanRX_Buffer, &tkWanRX_Buffer_Ptr );
+    xHandle_tkModemRX = xTaskCreateStatic( tkModemRX, "MODEMRX", tkModemRX_STACK_SIZE, (void *)1, tkModemRX_TASK_PRIORITY, tkModemRX_Buffer, &tkModemRX_Buffer_Ptr );
     xHandle_tkWan = xTaskCreateStatic( tkWan, "WAN", tkWan_STACK_SIZE, (void *)1, tkWan_TASK_PRIORITY, tkWan_Buffer, &tkWan_Buffer_Ptr );
     xHandle_tkRS485RX = xTaskCreateStatic( tkRS485RX, "RS485", tkRS485RX_STACK_SIZE, (void *)1, tkRS485RX_TASK_PRIORITY, tkRS485RX_Buffer, &tkRS485RX_Buffer_Ptr );
     xHandle_tkCtlPresion = xTaskCreateStatic( tkCtlPresion, "CPRES", tkCtlPresion_STACK_SIZE, (void *)1, tkCtlPresion_TASK_PRIORITY, tkCtlPresion_Buffer, &tkCtlPresion_Buffer_Ptr );

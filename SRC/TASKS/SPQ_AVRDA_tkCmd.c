@@ -16,6 +16,7 @@ static void pv_snprintfP_ERR(void );
 
 static bool test_valve( char *action);
 static bool test_modbus(void);
+static bool test_modem(void);
 
 //uint16_t uxHighWaterMark;
 
@@ -84,6 +85,17 @@ static void cmdTestFunction(void)
 
     FRTOS_CMD_makeArgv();
 
+    // MODEM
+    // modem {prender|apagar|atmode|exitat}
+     if (!strcmp_P( strupr(argv[1]), PSTR("MODEM"))  ) {
+        if ( test_modem() ) {
+            pv_snprintfP_OK();
+        } else {
+            pv_snprintfP_ERR();
+        }
+        return;
+    }
+        
     // RS485
     if (!strcmp_P( strupr(argv[1]), PSTR("RS485"))  ) {
         if (!strcmp_P( strupr(argv[2]), PSTR("WRITE"))  ) {
@@ -170,13 +182,13 @@ static void cmdTestFunction(void)
         }
         // Prender | apagar
         if (!strcmp_P( strupr(argv[2]), PSTR("ON"))  ) {
-            LTE_prender();
+            MODEM_prender();
             pv_snprintfP_OK();
             return;
         }    
         
         if (!strcmp_P( strupr(argv[2]), PSTR("OFF"))  ) {
-            LTE_apagar();
+            MODEM_apagar();
             pv_snprintfP_OK();
             return;
         } 
@@ -446,12 +458,18 @@ static void cmdTestFunction(void)
                 SYSTEM_EXIT_CRITICAL();
                 xHandle_tkWan = NULL;
             }
-            if ( xHandle_tkWanRX != NULL ) {
-                vTaskSuspend( xHandle_tkWanRX );
+            pv_snprintfP_OK();
+            return;
+        } 
+            
+        if (!strcmp_P( strupr(argv[2]), PSTR("MODEMRX"))  ) {
+            
+            if ( xHandle_tkModemRX != NULL ) {
+                vTaskSuspend( xHandle_tkModemRX );
                 SYSTEM_ENTER_CRITICAL();
-                task_running &= ~WANRX_WDG_gc;
+                task_running &= ~MODEMRX_WDG_gc;
                 SYSTEM_EXIT_CRITICAL();
-                xHandle_tkWanRX = NULL;
+                xHandle_tkModemRX = NULL;
             }
             pv_snprintfP_OK();
             return;
@@ -515,7 +533,7 @@ static void cmdHelpFunction(void)
         
     } else if (!strcmp_P( strupr(argv[1]), PSTR("TEST"))) {
 		xprintf_P( PSTR("-test\r\n"));
-        xprintf_P( PSTR("  kill {wan,sys}\r\n"));
+        xprintf_P( PSTR("  kill {wan,sys,modemrx}\r\n"));
         xprintf_P( PSTR("  valve {open|close}\r\n"));
         xprintf_P( PSTR("        {enable|disable}\r\n"));
         xprintf_P( PSTR("  consigna {diurna|nocturna}\r\n"));
@@ -527,6 +545,8 @@ static void cmdHelpFunction(void)
         xprintf_P( PSTR("  lte (dcin,vcap,pwr,reset,reload} {on|off}\r\n"));
         xprintf_P( PSTR("      {on|off}\r\n"));
         xprintf_P( PSTR("      link\r\n"));
+        xprintf_P( PSTR("  modem {prender|apagar|atmode|exitat|queryall|ids}\r\n"));
+        xprintf_P( PSTR("  modem set [apn {apn}, apiurl {apiurl}, server {ip,port}]\r\n"));
         xprintf_P( PSTR("  piloto {pres}\r\n"));
         xprintf_P( PSTR("  rs485 write\r\n"));
         return;
@@ -664,11 +684,11 @@ static void cmdResetFunction(void)
          */       
         vTaskSuspend( xHandle_tkSys );
         vTaskSuspend( xHandle_tkWan );
-        vTaskSuspend( xHandle_tkWanRX );
+        vTaskSuspend( xHandle_tkModemRX );
         SYSTEM_ENTER_CRITICAL();
         task_running &= ~SYS_WDG_gc;
         task_running &= ~WAN_WDG_gc;
-        task_running &= ~WANRX_WDG_gc;
+        task_running &= ~MODEMRX_WDG_gc;
         SYSTEM_EXIT_CRITICAL();
                 
         if ( !strcmp_P( strupr(argv[2]), PSTR("SOFT"))) {
@@ -690,17 +710,33 @@ static void cmdStatusFunction(void)
 
     // https://stackoverflow.com/questions/12844117/printing-defined-constants
 
+t_valve_status valve_status;
 
     xprintf("Spymovil %s %s TYPE=%s, VER=%s %s \r\n" , HW_MODELO, FRTOS_VERSION, FW_TYPE, FW_REV, FW_DATE);
       
     xprintf_P(PSTR("Config:\r\n"));
     xprintf_P(PSTR(" date: %s\r\n"), RTC_logprint(FORMAT_LONG));
     xprintf_P(PSTR(" dlgid: %s\r\n"), systemConf.ptr_base_conf->dlgid );
+    
+    xprintf_P(PSTR(" nvmid: %s\r\n"), NVM_signature2str());
+    
+    xprintf_P(PSTR(" imei: %s\r\n"), MODEM_get_imei());
+    xprintf_P(PSTR(" iccid: %s\r\n"), MODEM_get_iccid());
+    xprintf_P(PSTR(" csq: %d\r\n"), MODEM_get_csq());
+    
     xprintf_P(PSTR(" timerdial=%d\r\n"), systemConf.ptr_base_conf->timerdial);
     xprintf_P(PSTR(" timerpoll=%d\r\n"), systemConf.ptr_base_conf->timerpoll);
     u_print_pwr_configuration();
     u_print_tasks_running();
-            
+      
+    //xprintf_P(PSTR("Valves:\r\n"));
+    valve_status = get_valve_status();
+    if ( valve_status == VALVE_OPEN) {
+        xprintf_P( PSTR("Valve: OPEN\r\n"));
+    } else {
+        xprintf_P( PSTR("Valve: CLOSE\r\n"));
+    }
+    
     ainputs_print_configuration();
     counter_print_configuration();
     consigna_print_configuration();
@@ -951,12 +987,12 @@ static bool test_valve( char *action)
     }
 
     if (!strcmp_P( strupr(action), PSTR("OPEN"))  ) {
-        OPEN_VALVE();
+        VALVE_open();
         return (true);
     }
 
     if (!strcmp_P( strupr(action), PSTR("CLOSE"))  ) {
-        CLOSE_VALVE();
+        VALVE_close();
         return (true);
     }
 
@@ -987,6 +1023,78 @@ exit:
             
     vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
     CLEAR_EN_PWR_QMBUS();
+    return (retS);
+
+}
+//------------------------------------------------------------------------------
+static bool test_modem(void)
+{
+    
+bool retS = false;
+    
+
+    if (!strcmp_P( strupr(argv[2]), PSTR("IDS"))  ) {
+        MODEM_read_imei(true);
+        MODEM_read_iccid(true);
+        MODEM_read_csq(true);
+        retS=true;
+        goto exit;
+    }
+
+    if (!strcmp_P( strupr(argv[2]), PSTR("PRENDER"))  ) {
+        MODEM_prender();
+        retS=true;
+        goto exit;
+    }
+        
+    if (!strcmp_P( strupr(argv[2]), PSTR("APAGAR"))  ) {
+        MODEM_apagar();
+        retS=true;
+        goto exit;
+    }
+        
+    if (!strcmp_P( strupr(argv[2]), PSTR("ATMODE"))  ) {
+        MODEM_enter_mode_at(true);
+        retS=true;
+        goto exit;
+    }
+
+    if (!strcmp_P( strupr(argv[2]), PSTR("EXITAT"))  ) {
+        MODEM_exit_mode_at(true);
+        retS=true;
+        goto exit;
+    }
+        
+    if (!strcmp_P( strupr(argv[2]), PSTR("QUERYALL"))  ) {
+        MODEM_query_parameters();
+        retS=true;
+        goto exit;
+    }
+
+    // SET
+    if (!strcmp_P( strupr(argv[2]), PSTR("SET"))  ) {
+        if (!strcmp_P( strupr(argv[3]), PSTR("APN"))  ) {
+            MODEM_set_apn(argv[4]);
+            retS=true;
+            goto exit;
+        }
+        
+        if (!strcmp_P( strupr(argv[3]), PSTR("SERVER"))  ) {
+            MODEM_set_server(argv[4], argv[5]);
+            retS=true;
+            goto exit;
+        }
+        
+        if (!strcmp_P( strupr(argv[3]), PSTR("APIURL"))  ) {
+            MODEM_set_apiurl(argv[4]);
+            retS=true;
+            goto exit;
+        }
+    
+    }
+    
+exit:
+            
     return (retS);
 
 }

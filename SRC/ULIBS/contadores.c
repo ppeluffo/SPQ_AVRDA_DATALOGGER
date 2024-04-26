@@ -40,7 +40,8 @@ void counter_config_defaults( void )
      * Realiza la configuracion por defecto de los canales digitales.
      */
 
-    strncpy( counter_conf.name, "X", CNT_PARAMNAME_LENGTH );
+    //strncpy( counter_conf.name, "X", CNT_PARAMNAME_LENGTH );
+    strlcpy( counter_conf.name, "X", CNT_PARAMNAME_LENGTH );
     counter_conf.enabled = false;
     counter_conf.magpp = 1;
     counter_conf.modo_medida = CAUDAL;
@@ -101,7 +102,8 @@ bool retS = false;
         
     // NOMBRE
 	//snprintf_P( cnt->channel[ch].name, CNT_PARAMNAME_LENGTH, PSTR("%s"), s_name );
-    strncpy( counter_conf.name, s_name, CNT_PARAMNAME_LENGTH );
+    //strncpy( counter_conf.name, s_name, CNT_PARAMNAME_LENGTH );
+    strlcpy( counter_conf.name, s_name, CNT_PARAMNAME_LENGTH );
 
 	// MAGPP
 	if ( s_magpp != NULL ) { counter_conf.magpp = atof(s_magpp); }

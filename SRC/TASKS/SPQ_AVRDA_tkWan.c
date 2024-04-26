@@ -5,13 +5,6 @@ SemaphoreHandle_t sem_WAN;
 StaticSemaphore_t WAN_xMutexBuffer;
 #define MSTOTAKEWANSEMPH ((  TickType_t ) 10 )
 
-#define WAN_RX_BUFFER_SIZE 512
-char wan_rx_buffer[WAN_RX_BUFFER_SIZE];
-lBuffer_s wan_rx_lbuffer;
-
-#define WAN_TX_BUFFER_SIZE 255
-char wan_tx_buffer[WAN_TX_BUFFER_SIZE];
-
 static bool f_debug_comms = false;
 
 typedef enum { WAN_APAGADO=0, WAN_OFFLINE, WAN_ONLINE_CONFIG, WAN_ONLINE_DATA } wan_states_t;
@@ -78,51 +71,6 @@ uint16_t uxHighWaterMark;
 char tmpLocalStr[64] = { 0 };
 
 //------------------------------------------------------------------------------
-void tkWanRX(void * pvParameters)
-{
-
-	/*
-     * Esta tarea se encarga de recibir datos del modem LTE y
-     * guardarlos en un buffer lineal.
-     * Si se llena, BORRA EL BUFFER Y SE PIERDE TODO
-     * No debería pasar porque antes lo debería haber procesado y flusheado
-     * pero por las dudas. 
-     */
-
-( void ) pvParameters;
-uint8_t c = 0;
-
-    while ( ! starting_flag )
-        vTaskDelay( ( TickType_t)( 100 / portTICK_PERIOD_MS ) );
-
-    SYSTEM_ENTER_CRITICAL();
-    task_running |= WANRX_WDG_gc;
-    SYSTEM_EXIT_CRITICAL();
-    
-    sem_WAN = xSemaphoreCreateMutexStatic( &WAN_xMutexBuffer );
-    lBchar_CreateStatic ( &wan_rx_lbuffer, wan_rx_buffer, WAN_RX_BUFFER_SIZE );
- 
-    xprintf_P(PSTR("Starting tkWanRX..\r\n" ));
-  
-	// loop
-	for( ;; )
-	{
-       u_kick_wdt(WANRX_WDG_gc);
-       
-		c = '\0';	// Lo borro para que luego del un CR no resetee siempre el timer.
-		// el read se bloquea 50ms. lo que genera la espera.
-        while ( xfgetc( fdWAN, (char *)&c ) == 1 ) {
-            // Si hay datos recividos, los encolo
-            if ( ! lBchar_Put( &wan_rx_lbuffer, c) ) {
-                // Si el buffer esta lleno, la borro !!!!
-                lBchar_Flush(&wan_rx_lbuffer);
-            }
-        }
-        
-        vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
-	}    
-}
-//------------------------------------------------------------------------------
 void tkWan(void * pvParameters)
 {
 
@@ -141,6 +89,8 @@ void tkWan(void * pvParameters)
     SYSTEM_ENTER_CRITICAL();
     task_running |= WAN_WDG_gc;
     SYSTEM_EXIT_CRITICAL();
+    
+    sem_WAN = xSemaphoreCreateMutexStatic( &WAN_xMutexBuffer );
     
     xprintf_P(PSTR("Starting tkWan..\r\n" ));
     vTaskDelay( ( TickType_t)( 500 / portTICK_PERIOD_MS ) );
@@ -197,7 +147,7 @@ uint32_t waiting_secs;
         f_inicio = false;
         goto exit;
     }
-    
+       
     // Veo cuanto esperar con el modem apagado.
     waiting_secs = u_get_sleep_time(f_debug_comms);
     
@@ -242,7 +192,8 @@ static void wan_state_offline(void)
      * Este prende flags para indicar al resto que tipo de respuesta llego.
      */
  
-
+uint8_t i;
+    
 //    uxHighWaterMark = SPYuxTaskGetStackHighWaterMark( NULL );
 //    xprintf_P(PSTR("STACK offline_in = %d\r\n"), uxHighWaterMark );
     
@@ -250,6 +201,19 @@ static void wan_state_offline(void)
     
     xprintf_P(PSTR("WAN:: State OFFLINE\r\n"));
     
+    // Leo el CSQ, IMEI, ICCID:
+    for (i=0; i<3; i++) {
+        vTaskDelay( ( TickType_t)( 5000 / portTICK_PERIOD_MS ) );
+        if ( MODEM_enter_mode_at(false) ) {
+            MODEM_read_iccid(false);
+            MODEM_read_imei(false);
+            MODEM_read_csq(false);
+            //
+            MODEM_exit_mode_at(false);
+            break;
+        }
+        
+    }
     if ( ! wan_process_frame_ping() ) {
         wan_state = WAN_APAGADO;
         goto quit;
@@ -537,7 +501,8 @@ char *delim = "&,;:=><";
 char *ts = NULL;
 char *p;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
 	memset(tmpLocalStr,'\0',sizeof(tmpLocalStr));
@@ -578,7 +543,17 @@ uint8_t hash = 0;
     memset(wan_tx_buffer, '\0', WAN_TX_BUFFER_SIZE);
    
     hash = u_confbase_hash();      
-    snprintf( wan_tx_buffer, WAN_TX_BUFFER_SIZE,"ID=%s&TYPE=%s&VER=%s&CLASS=CONF_BASE&UID=%s&HASH=0x%02X", systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, NVM_signature2str(), hash );
+    //snprintf( wan_tx_buffer, WAN_TX_BUFFER_SIZE,"ID=%s&TYPE=%s&VER=%s&CLASS=CONF_BASE&UID=%s&HASH=0x%02X", systemConf.ptr_base_conf->dlgid, FW_TYPE, FW_REV, NVM_signature2str(), hash );
+    snprintf( wan_tx_buffer, WAN_TX_BUFFER_SIZE,
+                        "ID=%s&TYPE=%s&VER=%s&CLASS=CONF_BASE&UID=%s&IMEI=%s&ICCID=%s&CSQ=%d&HASH=0x%02X", 
+                        systemConf.ptr_base_conf->dlgid, 
+                        FW_TYPE, 
+                        FW_REV, 
+                        NVM_signature2str(), 
+                        MODEM_get_imei(),
+                        MODEM_get_iccid(),
+                        MODEM_get_csq(),
+                        hash );
    
     // Proceso. Envio hasta 3 veces el frame y espero hasta 10s la respuesta
     tryes = 3;
@@ -640,7 +615,8 @@ char *ts = NULL;
 bool retS = false;
 char *p;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
@@ -816,7 +792,8 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
        
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
@@ -943,7 +920,8 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
        retS = true;
@@ -1061,7 +1039,8 @@ char *ts = NULL;
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
@@ -1210,7 +1189,8 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
@@ -1385,7 +1365,8 @@ char str_base[8];
 char *p;
 bool retS = false;
 
-   p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     
     if  ( strstr( p, "CONFIG=OK") != NULL ) {
         retS = true;
@@ -1636,7 +1617,8 @@ char *token = NULL;
 char *delim = "&,;:=><";
 char *p;
 
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
 
     vTaskDelay( ( TickType_t)( 10 / portTICK_PERIOD_MS ) );
     //xprintf_P(PSTR("WAN:: response\r\n") );
@@ -1685,13 +1667,13 @@ char *p;
         if ( strstr( p, "VOPEN") != NULL ) {
         xprintf_P(PSTR("WAN:: OPEN VALVE from server !!\r\n"));
         vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
-        OPEN_VALVE();
+        VALVE_open();
     }
 
     if ( strstr( p, "VCLOSE") != NULL ) {
         xprintf_P(PSTR("WAN:: CLOSE VALVE from server !!\r\n"));
         vTaskDelay( ( TickType_t)( 2000 / portTICK_PERIOD_MS ) );
-        CLOSE_VALVE();
+        VALVE_close();
     }
 
     
@@ -1705,8 +1687,10 @@ static void wan_xmit_out(void )
      */
     
     // Antes de trasmitir siempre borramos el Rxbuffer
-    lBchar_Flush(&wan_rx_lbuffer);
-    xfprintf_P( fdWAN, PSTR("%s"), wan_tx_buffer);
+    //lBchar_Flush(&wan_rx_lbuffer);
+    MODEM_flush_rx_buffer();
+    //xfprintf_P( fdWAN, PSTR("%s"), wan_tx_buffer); 
+    MODEM_txmit(&wan_tx_buffer);
     
     //if (f_debug_comms ) {
         xprintf_P( PSTR("Xmit-> %s\r\n"), wan_tx_buffer);
@@ -1722,7 +1706,8 @@ static bool wan_check_response ( const char *s)
     
 char *p;
     
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
         
     if ( strstr( p, s) != NULL ) {
         if (f_debug_comms) {
@@ -1738,7 +1723,8 @@ static void wan_print_RXbuffer(void)
 
 char *p;
             
-    p = lBchar_get_buffer(&wan_rx_lbuffer);
+    p = MODEM_get_buffer_ptr();
+    //p = lBchar_get_buffer(&wan_rx_lbuffer);
     //if (f_debug_comms) {
         xprintf_P(PSTR("Rcvd-> %s\r\n"), p );
     //}
@@ -1746,13 +1732,13 @@ char *p;
 //------------------------------------------------------------------------------
 void wan_PRENDER_MODEM(void)
 {
-    LTE_prender();
+    MODEM_prender();
     xprintf_P(PSTR("WAN:: PRENDER MODEM\r\n"));
 }
 //------------------------------------------------------------------------------
 void wan_APAGAR_MODEM(void)
 {
-    LTE_apagar();
+    MODEM_apagar();
     xprintf_P(PSTR("WAN:: APAGAR MODEM\r\n"));
 }
 //------------------------------------------------------------------------------
